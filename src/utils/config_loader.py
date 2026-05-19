@@ -58,10 +58,27 @@ class SectionTargetConfig:
 
 
 @dataclass
+class PriceRangeConfig:
+    """Bounds for the ``price_range`` strategy (both inclusive)."""
+
+    min_price: float | None = None
+    max_price: float | None = None
+
+
+@dataclass
+class MultiSectionConfig:
+    """Ordered section-preference list for the ``multi_section`` strategy."""
+
+    sections: list[str] = field(default_factory=list)
+
+
+@dataclass
 class TicketsConfig:
     quantity: int = 2
     strategy: str = "cheapest"
     section_target: SectionTargetConfig = field(default_factory=SectionTargetConfig)
+    price_range: PriceRangeConfig = field(default_factory=PriceRangeConfig)
+    multi_section: MultiSectionConfig = field(default_factory=MultiSectionConfig)
     max_price: float | None = None
     accessible_seats: bool = False
 
@@ -389,6 +406,38 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
             raise ValueError(
                 "tickets.section_target.row_range must be [low, high] strings"
             )
+    price_range_raw = tickets_raw.get("price_range", {}) or {}
+    if not isinstance(price_range_raw, dict):
+        raise ValueError(
+            "tickets.price_range must be a mapping with min_price/max_price"
+        )
+    price_range = PriceRangeConfig(
+        min_price=_coerce_optional_float(
+            price_range_raw.get("min_price"), "tickets.price_range.min_price"
+        ),
+        max_price=_coerce_optional_float(
+            price_range_raw.get("max_price"), "tickets.price_range.max_price"
+        ),
+    )
+
+    multi_section_raw = tickets_raw.get("multi_section", {}) or {}
+    if not isinstance(multi_section_raw, dict):
+        raise ValueError(
+            "tickets.multi_section must be a mapping with a sections list"
+        )
+    sections_raw = multi_section_raw.get("sections")
+    if sections_raw is None:
+        sections_list: list[str] = []
+    else:
+        if not isinstance(sections_raw, list) or not all(
+            isinstance(s, str) and s.strip() for s in sections_raw
+        ):
+            raise ValueError(
+                "tickets.multi_section.sections must be a list of non-empty strings"
+            )
+        sections_list = [s.strip() for s in sections_raw]
+    multi_section = MultiSectionConfig(sections=sections_list)
+
     tickets = TicketsConfig(
         quantity=int(tickets_raw.get("quantity", 2)),
         strategy=tickets_raw.get("strategy", "cheapest"),
@@ -397,14 +446,48 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
             row_range=row_range_raw,
             price_level_id=section_target_raw.get("price_level_id"),
         ),
+        price_range=price_range,
+        multi_section=multi_section,
         max_price=_coerce_optional_float(tickets_raw.get("max_price"), "tickets.max_price"),
         accessible_seats=bool(tickets_raw.get("accessible_seats", False)),
     )
 
-    if tickets.strategy not in {"cheapest", "best_available", "section_target"}:
+    valid_strategies = {
+        "cheapest",
+        "best_available",
+        "section_target",
+        "price_range",
+        "multi_section",
+    }
+    if tickets.strategy not in valid_strategies:
         raise ValueError(
             f"Invalid tickets.strategy: {tickets.strategy!r}. "
-            "Must be one of: cheapest, best_available, section_target"
+            f"Must be one of: {', '.join(sorted(valid_strategies))}"
+        )
+
+    if (
+        tickets.strategy == "price_range"
+        and tickets.price_range.min_price is None
+        and tickets.price_range.max_price is None
+    ):
+        raise ValueError(
+            "tickets.strategy='price_range' requires at least one of "
+            "tickets.price_range.min_price or tickets.price_range.max_price"
+        )
+    if (
+        tickets.strategy == "price_range"
+        and tickets.price_range.min_price is not None
+        and tickets.price_range.max_price is not None
+        and tickets.price_range.min_price > tickets.price_range.max_price
+    ):
+        raise ValueError(
+            "tickets.price_range.min_price must be <= tickets.price_range.max_price"
+        )
+
+    if tickets.strategy == "multi_section" and not tickets.multi_section.sections:
+        raise ValueError(
+            "tickets.strategy='multi_section' requires "
+            "tickets.multi_section.sections to be a non-empty list"
         )
 
     if not 1 <= tickets.quantity <= 8:
@@ -628,8 +711,10 @@ __all__ = [
     "DeliveryConfig",
     "EventConfig",
     "LoggingConfig",
+    "MultiSectionConfig",
     "NotificationsConfig",
     "PaymentConfig",
+    "PriceRangeConfig",
     "SectionTargetConfig",
     "StealthConfig",
     "TicketsConfig",

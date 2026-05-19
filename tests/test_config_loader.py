@@ -239,3 +239,218 @@ def test_load_config_env_only_accounts(tmp_path, monkeypatch):
     cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing-accounts.yaml")
     assert len(cfg.accounts) == 1
     assert cfg.accounts[0].email == "env@example.com"
+
+
+# --- price_range strategy config -----------------------------------------
+
+
+def test_load_config_price_range_strategy_with_min_and_max(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "price_range"
+          price_range:
+            min_price: 100
+            max_price: 300
+        """,
+    )
+    cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+    assert cfg.tickets.strategy == "price_range"
+    assert cfg.tickets.price_range.min_price == 100.0
+    assert cfg.tickets.price_range.max_price == 300.0
+
+
+def test_load_config_price_range_max_only_is_accepted(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "price_range"
+          price_range:
+            max_price: 250
+        """,
+    )
+    cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+    assert cfg.tickets.price_range.min_price is None
+    assert cfg.tickets.price_range.max_price == 250.0
+
+
+def test_load_config_price_range_without_bounds_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "price_range"
+        """,
+    )
+    with pytest.raises(ValueError, match="price_range"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_price_range_min_above_max_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "price_range"
+          price_range:
+            min_price: 500
+            max_price: 100
+        """,
+    )
+    with pytest.raises(ValueError, match="min_price"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_price_range_non_numeric_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "price_range"
+          price_range:
+            min_price: "nope"
+            max_price: 100
+        """,
+    )
+    with pytest.raises(ValueError, match="min_price"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+# --- multi_section strategy config ---------------------------------------
+
+
+def test_load_config_multi_section_strategy_loads_ordered_sections(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "multi_section"
+          multi_section:
+            sections: ["100", "200", "300"]
+        """,
+    )
+    cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+    assert cfg.tickets.strategy == "multi_section"
+    assert cfg.tickets.multi_section.sections == ["100", "200", "300"]
+
+
+def test_load_config_multi_section_empty_list_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "multi_section"
+          multi_section:
+            sections: []
+        """,
+    )
+    with pytest.raises(ValueError, match="multi_section.sections"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_multi_section_non_string_entries_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "multi_section"
+          multi_section:
+            sections: [100, 200]
+        """,
+    )
+    with pytest.raises(ValueError, match="sections"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_unknown_strategy_rejected(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "nope"
+        """,
+    )
+    with pytest.raises(ValueError, match="Invalid tickets.strategy"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+# --- factory build_strategy ----------------------------------------------
+
+
+def test_build_strategy_price_range_uses_config():
+    from src.strategies.factory import build_strategy
+    from src.strategies.price_range import PriceRangeStrategy
+    from src.utils.config_loader import (
+        MultiSectionConfig,
+        PriceRangeConfig,
+        SectionTargetConfig,
+        TicketsConfig,
+    )
+
+    cfg = TicketsConfig(
+        strategy="price_range",
+        section_target=SectionTargetConfig(),
+        price_range=PriceRangeConfig(min_price=50.0, max_price=200.0),
+        multi_section=MultiSectionConfig(),
+    )
+    strat = build_strategy(cfg)
+    assert isinstance(strat, PriceRangeStrategy)
+    assert strat.min_price == 50.0
+    assert strat.max_price == 200.0
+
+
+def test_build_strategy_multi_section_uses_config():
+    from src.strategies.factory import build_strategy
+    from src.strategies.multi_section import MultiSectionStrategy
+    from src.utils.config_loader import (
+        MultiSectionConfig,
+        PriceRangeConfig,
+        SectionTargetConfig,
+        TicketsConfig,
+    )
+
+    cfg = TicketsConfig(
+        strategy="multi_section",
+        section_target=SectionTargetConfig(),
+        price_range=PriceRangeConfig(),
+        multi_section=MultiSectionConfig(sections=["100", "200"]),
+        max_price=300.0,
+    )
+    strat = build_strategy(cfg)
+    assert isinstance(strat, MultiSectionStrategy)
+    assert strat.sections == ["100", "200"]
+    assert strat.max_price == 300.0
+
+
+def test_strategy_registry_contains_new_strategies():
+    """price_range and multi_section must be registered with the strategies
+    registry so external code (and entry-point discovery) can find them.
+    """
+    # Importing the factory triggers default-strategy registration.
+    import src.strategies.factory  # noqa: F401
+    from src.registry import strategies as strategy_registry
+    from src.strategies.multi_section import MultiSectionStrategy
+    from src.strategies.price_range import PriceRangeStrategy
+
+    assert strategy_registry.get("price_range") is PriceRangeStrategy
+    assert strategy_registry.get("multi_section") is MultiSectionStrategy
