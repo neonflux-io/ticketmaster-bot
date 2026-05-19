@@ -97,7 +97,11 @@ async def main_async(args: argparse.Namespace | None = None) -> int:
         sys.stdout.flush()
         return 0
 
-    log = setup_logger(level=config.logging.level, log_file=config.logging.file)
+    log = setup_logger(
+        level=config.logging.level,
+        log_file=config.logging.file,
+        format=config.logging.format,
+    )
     log.info("=" * 60)
     log.info("Ticketmaster Bot starting")
     log.info("Vendor: %s", args.vendor)

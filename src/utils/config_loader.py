@@ -36,6 +36,7 @@ import yaml
 from dotenv import load_dotenv
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_VALID_LOG_FORMATS = {"rich", "json"}
 _DEFAULT_TRUSTED_HOSTS = ("ticketmaster.com", "ticketmaster.ca", "livenation.com")
 _ENV_VAR_RE = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
 
@@ -239,6 +240,7 @@ class ArtifactsConfig:
 class LoggingConfig:
     level: str = "INFO"
     file: str | None = "logs/bot.log"
+    format: str = "rich"
     artifacts: ArtifactsConfig = field(default_factory=ArtifactsConfig)
 
 
@@ -869,6 +871,11 @@ def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
     level = str(logging_raw.get("level", "INFO")).upper()
     if level not in _VALID_LOG_LEVELS:
         raise ValueError(f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}")
+    fmt = str(logging_raw.get("format", "rich")).lower()
+    if fmt not in _VALID_LOG_FORMATS:
+        raise ValueError(
+            f"logging.format must be one of {sorted(_VALID_LOG_FORMATS)}, got {fmt!r}"
+        )
     artifacts_raw = logging_raw.get("artifacts", {}) or {}
     if not isinstance(artifacts_raw, dict):
         raise ValueError(f"logging.artifacts must be a mapping, got {type(artifacts_raw).__name__}")
@@ -876,6 +883,7 @@ def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
     return LoggingConfig(
         level=level,
         file=logging_raw.get("file", "logs/bot.log"),
+        format=fmt,
         artifacts=artifacts,
     )
 
