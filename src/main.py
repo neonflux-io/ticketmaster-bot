@@ -1,4 +1,9 @@
-"""Entry point for the Ticketmaster bot."""
+"""Entry point for the Ticketmaster bot.
+
+The argparse surface lives in :mod:`src.cli`. This module is responsible
+for wiring the parsed namespace into config loading, vendor resolution,
+account selection, and the runner launch path.
+"""
 from __future__ import annotations
 
 import argparse
@@ -6,117 +11,69 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 # Allow `python src/main.py` and `python -m src.main` both to work
 _here = Path(__file__).resolve().parent
 if str(_here.parent) not in sys.path:
     sys.path.insert(0, str(_here.parent))
 
-from src.bot.core import BotRunner  # noqa: E402
-from src.cli import parse_set_overrides  # noqa: E402
+from src.cli import parse_args, parse_events_flag, parse_set_overrides  # noqa: E402
+from src.registry import vendors as vendor_registry  # noqa: E402
 from src.utils.config_loader import config_to_yaml, load_config  # noqa: E402
 from src.utils.logger import setup_logger  # noqa: E402
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Ticketmaster ticket-buying bot")
-    p.add_argument(
-        "--config",
-        "-c",
-        default="config/config.yaml",
-        help="Path to config file (default: config/config.yaml)",
-    )
-    p.add_argument(
-        "--accounts",
-        "-a",
-        default="config/accounts.yaml",
-        help="Path to accounts file (default: config/accounts.yaml)",
-    )
-    p.add_argument(
-        "--account-name",
-        default=None,
-        help="Run only the account with this name (default: first account)",
-    )
-    p.add_argument(
-        "--profile",
-        default=None,
-        help=(
-            "Apply config/profiles/<name>.yaml on top of the main config. "
-            "Ships with 'fast' and 'safe'."
-        ),
-    )
-    p.add_argument(
-        "--set",
-        dest="set_overrides",
-        action="append",
-        default=[],
-        metavar="KEY.PATH=VALUE",
-        help=(
-            "Override a config value at a dotted path. "
-            "Repeatable, e.g. --set tickets.quantity=4 --set checkout.auto_purchase=false"
-        ),
-    )
+def _resolve_vendor_adapter(name: str) -> Any:
+    """Look up the vendor adapter class for ``name`` or raise ValueError.
 
-    headless_group = p.add_mutually_exclusive_group()
-    headless_group.add_argument(
-        "--headless",
-        dest="headless",
-        action="store_true",
-        default=None,
-        help="Force headless mode regardless of config",
-    )
-    headless_group.add_argument(
-        "--no-headless",
-        dest="headless",
-        action="store_false",
-        help="Force a visible browser regardless of config",
-    )
+    The shipped Ticketmaster adapter is registered as a side effect of
+    importing :mod:`src.vendors` (which we import here lazily so a CLI
+    failure path doesn't pay the import cost twice).
+    """
+    import src.vendors  # noqa: F401  (registers TicketmasterAdapter)
 
-    purchase_group = p.add_mutually_exclusive_group()
-    purchase_group.add_argument(
-        "--auto-purchase",
-        dest="auto_purchase",
-        action="store_true",
-        default=None,
-        help="Force auto_purchase=true regardless of config (USE WITH CAUTION)",
-    )
-    purchase_group.add_argument(
-        "--no-auto-purchase",
-        dest="auto_purchase",
-        action="store_false",
-        help="Force auto_purchase=false regardless of config",
-    )
-
-    p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate config and exit without launching a browser",
-    )
-    p.add_argument(
-        "--explain",
-        action="store_true",
-        help=(
-            "Dump the fully resolved config as YAML to stdout and exit. "
-            "Useful for verifying profile/--set overlays before a real run."
-        ),
-    )
-    return p.parse_args(argv)
+    try:
+        return vendor_registry.get(name)
+    except Exception as exc:
+        available = ", ".join(sorted(vendor_registry.all())) or "<none>"
+        raise ValueError(
+            f"Unknown vendor {name!r}. Registered vendors: {available}"
+        ) from exc
 
 
-async def main_async() -> int:
-    args = parse_args()
+async def main_async(args: argparse.Namespace | None = None) -> int:
+    if args is None:
+        args = parse_args()
 
     # Bootstrap a minimal logger so config-load errors are visible.
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     bootstrap_log = logging.getLogger("ticketmaster-bot")
 
+    # --- 1. Vendor validation up front ---------------------------------
     try:
-        overrides = parse_set_overrides(args.set_overrides)
+        adapter_cls = _resolve_vendor_adapter(args.vendor)
     except ValueError as exc:
-        # argparse-style error: print to stderr and exit 2.
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    # --- 2. Parse --set overrides --------------------------------------
+    try:
+        overrides = parse_set_overrides(args.set_overrides)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    # --- 3. Apply --events as an overlay so it wins over file values ---
+    event_urls = parse_events_flag(args.events)
+    if event_urls:
+        # Replace any baseline events / legacy event key wholesale.
+        overrides["events"] = [{"url": url} for url in event_urls]
+        # The legacy single-event key in the base file would otherwise
+        # still win when 'events:' is absent from the merged tree.
+        # Setting events:[...] in the overrides supersedes it.
+
+    # --- 4. Load config (handles --profile and ${VAR} expansion) --------
     try:
         config = load_config(
             args.config,
@@ -133,9 +90,9 @@ async def main_async() -> int:
     if args.auto_purchase is not None:
         config.checkout.auto_purchase = args.auto_purchase
 
-    # --explain runs before logging is reconfigured so the resolved YAML is
-    # the *only* thing on stdout. Rich/RichHandler writes to stderr by
-    # default, so callers can safely `python run.py --explain | yq ...`.
+    # --- 5. --explain prints resolved YAML and exits --------------------
+    # Logging is intentionally NOT reconfigured first so that stdout
+    # contains only the resolved YAML.
     if args.explain:
         sys.stdout.write(config_to_yaml(config))
         sys.stdout.flush()
@@ -144,6 +101,7 @@ async def main_async() -> int:
     log = setup_logger(level=config.logging.level, log_file=config.logging.file)
     log.info("=" * 60)
     log.info("Ticketmaster Bot starting")
+    log.info("Vendor: %s", args.vendor)
     for i, evt in enumerate(config.events, start=1):
         log.info("Event %d: %s", i, evt.url)
     log.info(
@@ -152,6 +110,13 @@ async def main_async() -> int:
         config.tickets.quantity,
         config.checkout.auto_purchase,
     )
+    if args.parallel or args.max_parallel is not None or args.stagger_seconds is not None:
+        log.info(
+            "Parallel: %s | max_parallel: %s | stagger_seconds: %s",
+            args.parallel,
+            args.max_parallel,
+            args.stagger_seconds,
+        )
     log.info("=" * 60)
 
     account = None
@@ -168,7 +133,8 @@ async def main_async() -> int:
         log.info("Dry run: config validated successfully. Exiting before launch.")
         return 0
 
-    runner = BotRunner(config, account=account)
+    adapter = adapter_cls()
+    runner = adapter.build_runner(config, account=account)
     try:
         success = await runner.run()
     except KeyboardInterrupt:
