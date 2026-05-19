@@ -7,6 +7,8 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from ...registry import selectors as selector_registry
+from ...registry.selectors import selector_for
 from ...utils.retry import random_human_delay
 
 if TYPE_CHECKING:
@@ -30,9 +32,7 @@ async def open_event(
     await page.goto(url, wait_until="domcontentloaded", timeout=int(timeout_seconds * 1000))
     try:
         await page.wait_for_selector(
-            "[data-bdd='quick-picks-list'], [data-bdd='event-onsale-time'], "
-            "iframe[title*='queue' i], button:has-text('Find Tickets'), "
-            "text=/On Sale/i, text=/Sale Starts/i",
+            selector_for("event_page_loaded_markers"),
             timeout=int(timeout_seconds * 1000),
         )
     except Exception:  # noqa: BLE001
@@ -87,12 +87,7 @@ async def wait_until_on_sale(
 async def _tickets_available(page: Page) -> bool:
     """Heuristic: tickets are on sale if quick-picks or ticket list is visible."""
     try:
-        for selector in (
-            "[data-bdd='quick-picks-list']",
-            "[data-bdd='ticket-list']",
-            "button:has-text('Find Tickets')",
-            ".quick-picks",
-        ):
+        for selector in selector_registry.get("tickets_available_markers"):
             if await page.locator(selector).first.is_visible(timeout=500):
                 return True
     except Exception:  # noqa: BLE001
@@ -122,25 +117,14 @@ async def detect_state(page: Page) -> str:
     except Exception:  # noqa: BLE001
         scope = page  # type: ignore[assignment]
 
-    sold_out_selectors = (
-        "text=/sold out/i",
-        "text=/no tickets are available/i",
-        "[data-bdd='sold-out']",
-    )
-    for sel in sold_out_selectors:
+    for sel in selector_registry.get("sold_out_marker"):
         try:
             if await scope.locator(sel).first.is_visible(timeout=400):
                 return "sold_out"
         except Exception:  # noqa: BLE001
             continue
 
-    not_on_sale_selectors = (
-        "text=/sale starts/i",
-        "text=/on sale .* at/i",
-        "text=/presale/i",
-        "[data-bdd='event-onsale-time']",
-    )
-    for sel in not_on_sale_selectors:
+    for sel in selector_registry.get("not_on_sale_marker"):
         try:
             if await scope.locator(sel).first.is_visible(timeout=400):
                 return "not_on_sale"

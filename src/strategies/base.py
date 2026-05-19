@@ -1,4 +1,5 @@
 """Abstract base class for ticket selection strategies."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +8,8 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from ..registry.selectors import locator_multi
 
 if TYPE_CHECKING:
     from playwright.async_api import Locator, Page
@@ -48,9 +51,7 @@ class SelectionStrategy(ABC):
     async def list_candidates(self, page: Page) -> list[TicketCandidate]:
         """Read all ticket rows from the quick-picks list."""
         candidates: list[TicketCandidate] = []
-        rows = page.locator(
-            "[data-bdd='quick-pick-row'], [data-bdd='ticket-list'] li, .quick-picks li"
-        )
+        rows = locator_multi(page, "quick_pick_row")
         try:
             count = await rows.count()
         except Exception:  # noqa: BLE001
@@ -65,9 +66,7 @@ class SelectionStrategy(ABC):
             sections = _extract_sections(text)
             row_label = _extract_row(text)
             try:
-                price_level_id = await row.get_attribute(
-                    "data-price-level-id", timeout=200
-                )
+                price_level_id = await row.get_attribute("data-price-level-id", timeout=200)
             except Exception:  # noqa: BLE001
                 price_level_id = None
             candidates.append(
@@ -147,10 +146,6 @@ def _find_match(
         if c.description == target.description:
             return c
     for c in candidates:
-        if (
-            c.price == target.price
-            and c.section == target.section
-            and c.row == target.row
-        ):
+        if c.price == target.price and c.section == target.section and c.row == target.row:
             return c
     return None

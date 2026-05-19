@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from ...registry import selectors as selector_registry
+from ...registry.selectors import locator
 from ...strategies.base import _extract_price, _extract_sections
 from ...utils.retry import random_human_delay
 from . import auth as auth_module
@@ -50,10 +52,7 @@ async def select_delivery(
         return False
 
     # 2. Last resort: first delivery radio. Only when allow_any=True.
-    selectors = (
-        "input[type='radio'][name*='delivery' i]",
-        "[data-bdd='delivery-option']",
-    )
+    selectors = selector_registry.get("delivery_radio")
     for sel in selectors:
         try:
             radio = page.locator(sel).first
@@ -102,10 +101,7 @@ async def verify_cart_matches(
     match - logged as a warning). Returns False on a definitive mismatch.
     """
     try:
-        summary = page.locator(
-            "[data-bdd='order-summary'], [data-bdd='cart-summary'], "
-            "section:has-text('Order Summary')"
-        ).first
+        summary = locator(page, "order_summary")
         await summary.wait_for(state="visible", timeout=4000)
         text = (await summary.inner_text(timeout=2000)) or ""
     except Exception as exc:  # noqa: BLE001
@@ -227,15 +223,8 @@ async def run_checkout(
     # TM frequently throws a captcha at the very last step.
     await auth_module.wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
 
-    place_order_selectors = (
-        "button:has-text('Place Order')",
-        "button:has-text('Submit Order')",
-        "button:has-text('Complete Purchase')",
-        "[data-bdd='place-order-button']",
-    )
-    combined = ", ".join(place_order_selectors)
     try:
-        btn = page.locator(combined).first
+        btn = locator(page, "place_order_button")
         await btn.wait_for(state="visible", timeout=8000)
         log.info("Clicking Place Order")
         await btn.click()
@@ -251,11 +240,7 @@ async def run_checkout(
 
 
 async def _accept_terms(page: Page) -> None:
-    selectors = (
-        "input[type='checkbox'][name*='terms' i]",
-        "input[type='checkbox'][id*='agree' i]",
-        "input[type='checkbox'][aria-label*='agree' i]",
-    )
+    selectors = selector_registry.get("terms_checkbox")
     for sel in selectors:
         try:
             cb = page.locator(sel).first
@@ -270,12 +255,7 @@ async def _verify_order_placed(page: Page) -> bool:
     url = page.url.lower()
     if "confirmation" in url or "thankyou" in url or "order-confirmation" in url:
         return True
-    indicators = (
-        "text=/Order Confirmed/i",
-        "text=/Thank you for your order/i",
-        "text=/Your order is confirmed/i",
-        "[data-bdd='order-confirmation']",
-    )
+    indicators = selector_registry.get("order_confirmation")
     for sel in indicators:
         try:
             if await page.locator(sel).first.is_visible(timeout=3000):

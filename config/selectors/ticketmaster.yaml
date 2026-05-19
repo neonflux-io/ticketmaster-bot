@@ -1,0 +1,156 @@
+# Logical-name → CSS/XPath fallback selectors for Ticketmaster's DOM.
+#
+# The list under each name is tried in order and joined with ", " by
+# ``src.registry.selectors.locator(page, name)``. Fallbacks should move from
+# the most-stable / most-specific (Ticketmaster data attributes) to the
+# loosest text-based heuristics.
+#
+# Every selector previously inlined under ``src/`` lives here so the CI
+# grep gate ``rg "data-bdd=" src/`` returns nothing. When TM changes their
+# DOM, only this file should need editing - no Python code change required.
+
+# --- ticket selection -----------------------------------------------------
+
+quick_pick_row:
+  - "[data-bdd='quick-pick-row']"
+  - "[data-bdd='ticket-list'] li"
+  - ".quick-picks li"
+
+quick_picks_list:
+  - "[data-bdd='quick-picks-list']"
+
+ticket_list:
+  - "[data-bdd='ticket-list']"
+
+best_available_button:
+  - "button:has-text('Best Available')"
+  - "[data-bdd='best-available']"
+
+find_tickets_button:
+  - "button:has-text('Find Tickets')"
+
+# --- cart / quantity ------------------------------------------------------
+
+quantity_select:
+  - "select[name='quantity']"
+  - "select[data-bdd='quantity-select']"
+  - "select[aria-label*='quantity' i]"
+  - "select#qty"
+
+add_to_cart_button:
+  - "button:has-text('Add to Cart')"
+  - "[data-bdd='checkout-button']"
+  - "[data-bdd='add-to-cart-button']"
+  - "form:has([data-bdd='quick-picks-list']) button:has-text('Continue')"
+  - "[data-bdd='ticket-list'] button:has-text('Continue')"
+  - "[role='dialog']:has-text('Add to Cart') button:has-text('Continue')"
+  - "main button:has-text('Continue')"
+  - "form:has([data-bdd='quick-picks-list']) button:has-text('Reserve')"
+  - "[data-bdd='ticket-list'] button:has-text('Reserve')"
+  - "[role='dialog']:has-text('Add to Cart') button:has-text('Reserve')"
+  - "main button:has-text('Reserve')"
+
+checkout_page_indicators:
+  - "text=/Order Summary/i"
+  - "text=/Payment Method/i"
+  - "text=/Delivery Method/i"
+  - "[data-bdd='checkout-page']"
+
+# --- checkout / order ----------------------------------------------------
+
+place_order_button:
+  - "button:has-text('Place Order')"
+  - "button:has-text('Submit Order')"
+  - "button:has-text('Complete Purchase')"
+  - "[data-bdd='place-order-button']"
+
+delivery_radio:
+  - "input[type='radio'][name*='delivery' i]"
+  - "[data-bdd='delivery-option']"
+
+order_summary:
+  - "[data-bdd='order-summary']"
+  - "[data-bdd='cart-summary']"
+  - "section:has-text('Order Summary')"
+
+order_total_markers:
+  - "[data-bdd='order-summary']"
+  - "[data-bdd='total-price']"
+  - "[data-bdd='subtotal']"
+  - "[class*='total']"
+
+order_confirmation:
+  - "text=/Order Confirmed/i"
+  - "text=/Thank you for your order/i"
+  - "text=/Your order is confirmed/i"
+  - "[data-bdd='order-confirmation']"
+
+terms_checkbox:
+  - "input[type='checkbox'][name*='terms' i]"
+  - "input[type='checkbox'][id*='terms' i]"
+  - "input[type='checkbox'][aria-label*='terms' i]"
+  - "input[type='checkbox'][name*='agree' i]"
+  - "input[type='checkbox'][id*='agree' i]"
+  - "input[type='checkbox'][aria-label*='agree' i]"
+
+# --- event page state ----------------------------------------------------
+
+event_onsale_time:
+  - "[data-bdd='event-onsale-time']"
+
+event_page_loaded_markers:
+  - "[data-bdd='quick-picks-list']"
+  - "[data-bdd='event-onsale-time']"
+  - "iframe[title*='queue' i]"
+  - "button:has-text('Find Tickets')"
+  - "text=/On Sale/i"
+  - "text=/Sale Starts/i"
+
+tickets_available_markers:
+  - "[data-bdd='quick-picks-list']"
+  - "[data-bdd='ticket-list']"
+  - "button:has-text('Find Tickets')"
+  - ".quick-picks"
+
+sold_out_marker:
+  - "text=/sold out/i"
+  - "text=/no tickets are available/i"
+  - "[data-bdd='sold-out']"
+
+not_on_sale_marker:
+  - "text=/sale starts/i"
+  - "text=/on sale .* at/i"
+  - "text=/presale/i"
+  - "[data-bdd='event-onsale-time']"
+
+# --- queue ---------------------------------------------------------------
+
+queue_position:
+  - "text=/your place in line/i"
+  - "text=/position in line/i"
+  - "text=/people ahead of you/i"
+  - "[class*='queue-position']"
+  - "[class*='position']"
+
+# --- auth ----------------------------------------------------------------
+
+auth_frame:
+  - "iframe[src*='identity.ticketmaster.com']"
+  - "iframe[src*='auth.ticketmaster.com']"
+  - "iframe[title*='login' i]"
+
+sign_in_button:
+  - "a:has-text('Sign In')"
+  - "button:has-text('Sign In')"
+
+login_email_input:
+  - "input[name='email']"
+  - "input#email"
+
+login_password_input:
+  - "input[name='password']"
+  - "input#password"
+
+login_submit_button:
+  - "button[type='submit']"
+  - "button:has-text('Sign In')"

@@ -6,6 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from ...registry import selectors as selector_registry
+from ...registry.selectors import locator
 from ...utils.retry import random_human_delay
 from . import auth as auth_module
 
@@ -41,16 +43,8 @@ async def set_quantity(page: Page, quantity: int) -> None:
     """Set ticket quantity. TM uses a <select> dropdown."""
     log.info("Setting ticket quantity to %d", quantity)
 
-    combined = ", ".join(
-        (
-            "select[name='quantity']",
-            "select[data-bdd='quantity-select']",
-            "select[aria-label*='quantity' i]",
-            "select#qty",
-        )
-    )
     try:
-        select = page.locator(combined).first
+        select = locator(page, "quantity_select")
         await select.wait_for(state="visible", timeout=4000)
         await select.select_option(value=str(quantity))
         return
@@ -60,14 +54,7 @@ async def set_quantity(page: Page, quantity: int) -> None:
 
 async def accept_terms_if_needed(page: Page) -> None:
     """Tick any 'I agree to TM terms' checkbox if present, but never opt-ins."""
-    checkbox_selectors = (
-        "input[type='checkbox'][name*='terms' i]",
-        "input[type='checkbox'][id*='terms' i]",
-        "input[type='checkbox'][aria-label*='terms' i]",
-        "input[type='checkbox'][name*='agree' i]",
-        "input[type='checkbox'][id*='agree' i]",
-        "input[type='checkbox'][aria-label*='agree' i]",
-    )
+    checkbox_selectors = selector_registry.get("terms_checkbox")
     for sel in checkbox_selectors:
         cb = page.locator(sel).first
         try:
@@ -125,25 +112,10 @@ async def add_to_cart(
     await accept_terms_if_needed(page)
     await random_human_delay(*action_delay)
 
-    # Scope generic "Continue"/"Reserve" buttons to a likely-correct container
-    # so we don't click the wrong CTA in unrelated UI chrome.
-    scopes = (
-        "form:has([data-bdd='quick-picks-list']), "
-        "[data-bdd='ticket-list'], "
-        "[role='dialog']:has-text('Add to Cart'), "
-        "main",
-    )
-    candidates = (
-        "button:has-text('Add to Cart')",
-        "[data-bdd='checkout-button']",
-        "[data-bdd='add-to-cart-button']",
-        f"{scopes} button:has-text('Continue')",
-        f"{scopes} button:has-text('Reserve')",
-    )
+    candidates = selector_registry.get("add_to_cart_button")
     clicked = False
-    combined = ", ".join(candidates)
     try:
-        btn = page.locator(combined).first
+        btn = locator(page, "add_to_cart_button")
         await btn.wait_for(state="visible", timeout=int(timeout_seconds * 1000))
         log.info("Clicking primary add-to-cart action")
         await btn.click()
@@ -188,12 +160,7 @@ async def _verify_in_cart(page: Page) -> bool:
     ):
         log.info("Tickets reserved in cart!")
         return True
-    indicators = (
-        "text=/Order Summary/i",
-        "text=/Payment Method/i",
-        "text=/Delivery Method/i",
-        "[data-bdd='checkout-page']",
-    )
+    indicators = selector_registry.get("checkout_page_indicators")
     for sel in indicators:
         try:
             if await page.locator(sel).first.is_visible(timeout=2000):

@@ -1,9 +1,12 @@
 """Best-available strategy - uses Ticketmaster's own 'best available' button."""
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
+from ..registry import selectors as selector_registry
+from ..registry.selectors import locator
 from .base import SelectionStrategy, TicketCandidate, _extract_price
 
 if TYPE_CHECKING:
@@ -21,9 +24,7 @@ class BestAvailableStrategy(SelectionStrategy):
     async def pick(self, page: Page) -> TicketCandidate | None:
         # First try a dedicated "Best Available" button.
         try:
-            best_btn = page.locator(
-                "button:has-text('Best Available'), [data-bdd='best-available']"
-            ).first
+            best_btn = locator(page, "best_available_button")
             if await best_btn.is_visible(timeout=2000):
                 log.info("Clicking 'Best Available' button")
                 await best_btn.click()
@@ -84,12 +85,7 @@ class BestAvailableStrategy(SelectionStrategy):
 
 async def _read_selected_price(page: Page) -> float | None:
     """Best-effort read the post-selection price from the order summary widgets."""
-    selectors = (
-        "[data-bdd='order-summary']",
-        "[data-bdd='total-price']",
-        "[data-bdd='subtotal']",
-        "[class*='total']",
-    )
+    selectors = selector_registry.get("order_total_markers")
     for sel in selectors:
         try:
             loc = page.locator(sel).first

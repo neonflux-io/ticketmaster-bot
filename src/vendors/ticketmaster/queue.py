@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from ...registry import selectors as selector_registry
+
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
@@ -72,13 +74,7 @@ async def wait_through_queue(
 
 async def _try_read_queue_position(page: Page) -> str | None:
     """Best-effort attempt to read queue position text."""
-    selectors = [
-        "text=/your place in line/i",
-        "text=/position in line/i",
-        "text=/people ahead of you/i",
-        "[class*='queue-position']",
-        "[class*='position']",
-    ]
+    selectors = selector_registry.get("queue_position")
     for sel in selectors:
         try:
             loc = page.locator(sel).first
