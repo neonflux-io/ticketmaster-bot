@@ -148,12 +148,14 @@ async def test_select_saved_card_returns_false_when_card_not_present(
 async def test_verify_cart_matches_happy_path(chromium_context, fixture_url) -> None:
     """Cart fixture matches a candidate with section=GENADM, $144 base, qty=2.
 
-    The cart fixture's order-summary line reads "Section GENADM" (a
-    single-token value) because the shared section regex in
-    ``src.strategies.base._extract_sections`` is currency-agnostic and
-    will partially match split section labels (``Section: GEN ADM`` →
-    captures only ``GEN``). Single-token labels keep the test
-    deterministic.
+    The SG-specific extractor (``_extract_sg_sections`` in the
+    checkout module) handles both the compact ``GENADM`` and the
+    space-separated ``GEN ADM`` forms via the
+    :func:`_normalise_section` helper. The shared US extractor in
+    ``src.strategies.base._extract_sections`` would only capture the
+    first token from ``Section: GEN ADM``; F7.6 widens the SG-side
+    comparison so the live order summary's multi-word labels match
+    too.
     """
     page = await chromium_context.new_page()
     await page.goto(fixture_url("vendors/ticketmaster_sg/cart.html"))
@@ -381,3 +383,46 @@ def test_checkout_fixture_is_committed() -> None:
 
 def test_checkout_error_is_exception() -> None:
     assert issubclass(CheckoutError, Exception)
+
+
+# ---------------------------------------------------------------------------
+# Section extraction + normalisation (F7.6: SG multi-word section labels)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Section: GENADM", ["GENADM"]),
+        ("Section: GEN ADM", ["GEN ADM"]),
+        ("Section GENADM", ["GENADM"]),
+        ("Section GENERAL ADMISSION", ["GENERAL ADMISSION"]),
+        ("Section 108 - Sec 109", ["108", "109"]),
+        # The stop-words list trims trailing summary-row tokens so the
+        # extractor never spills into "Quantity 2 tickets" when the SG
+        # inner_text concatenates two table cells.
+        ("Section GENADM Quantity 2 tickets", ["GENADM"]),
+        ("Section: GEN ADM Subtotal SGD 288.00", ["GEN ADM"]),
+    ],
+)
+def test_extract_sg_sections_handles_sg_label_shapes(
+    text: str, expected: list[str]
+) -> None:
+    from src.vendors.ticketmaster_sg.checkout import _extract_sg_sections
+
+    assert _extract_sg_sections(text) == expected
+
+
+@pytest.mark.parametrize(
+    "a, b",
+    [
+        ("GENADM", "GEN ADM"),
+        ("GEN ADM", "genadm"),
+        ("GENERAL ADMISSION", "general admission"),
+        (" GEN ADM ", "GENADM"),
+    ],
+)
+def test_normalise_section_treats_spaces_as_no_op(a: str, b: str) -> None:
+    from src.vendors.ticketmaster_sg.checkout import _normalise_section
+
+    assert _normalise_section(a) == _normalise_section(b)

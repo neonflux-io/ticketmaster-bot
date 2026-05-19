@@ -18,8 +18,12 @@ log = logging.getLogger("ticketmaster-bot")
 
 
 _PRICE_RE = re.compile(r"\$([\d,]+(?:\.\d{1,2})?)")
-_SECTION_RE = re.compile(r"(?:section|sec)\s*([A-Z0-9]+)", re.IGNORECASE)
-_ROW_RE = re.compile(r"(?:row)\s*([A-Z0-9]+)", re.IGNORECASE)
+# Word-bounded so "Section" is not parsed as "sec" + "tion" (the F7.4 worker
+# flagged the original ``(?:section|sec)\s*`` form misparsing
+# ``Section: GENADM`` as ``TION``). The optional colon supports the SG
+# ``Section: GENADM`` label format alongside the US ``Section 108`` shape.
+_SECTION_RE = re.compile(r"\b(?:section|sec)\b\s*:?\s*([A-Z0-9]+)", re.IGNORECASE)
+_ROW_RE = re.compile(r"\b(?:row)\b\s*:?\s*([A-Z0-9]+)", re.IGNORECASE)
 
 
 @dataclass

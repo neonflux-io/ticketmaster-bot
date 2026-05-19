@@ -27,9 +27,9 @@ grep gate stays at zero matches.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
-from ...strategies.base import _extract_sections
 from ...utils.retry import random_human_delay
 from . import auth as sg_auth
 from . import cart as sg_cart
@@ -196,8 +196,6 @@ async def select_saved_card(page: Page, last_four: str | None) -> bool:
 
 
 def _extract_quantity(text: str) -> int | None:
-    import re
-
     match = re.search(r"(\d+)\s*(?:tickets?|seats?)\b", text, re.IGNORECASE)
     if not match:
         return None
@@ -205,6 +203,80 @@ def _extract_quantity(text: str) -> int | None:
         return int(match.group(1))
     except ValueError:
         return None
+
+
+# Greedy SG section extractor. The shared US extractor in
+# :mod:`src.strategies.base` is word-bounded on a single token after the
+# ``Section`` keyword (so ``Section: GENADM`` works but ``Section: GEN ADM``
+# only captures ``GEN``). The SG site renders multi-word labels like
+# ``Section: GEN ADM`` and ``Section GENERAL ADMISSION`` so we sweep up the
+# rest of the run of uppercase tokens following the keyword here.
+#
+# The match deliberately stops at the first newline / sentence boundary
+# so trailing summary lines (``Quantity 2 tickets``, ``Subtotal …``) do
+# not get pulled into the captured section text.
+_SG_SECTION_RE = re.compile(
+    r"\b(?:section|sec)\b[ \t]*:?[ \t]*([A-Z0-9]+(?:[ \t]+[A-Z0-9]+)*)",
+    re.IGNORECASE,
+)
+
+# Labels that often appear immediately after the section value on the SG
+# order-summary line (``Section GENADM Quantity 2 tickets …``). When the
+# extractor's greedy run reaches one of these the value is truncated to
+# everything before it.
+_SG_SECTION_STOPWORDS = (
+    "quantity",
+    "subtotal",
+    "total",
+    "booking",
+    "fee",
+    "row",
+    "delivery",
+    "payment",
+)
+
+
+def _extract_sg_sections(text: str) -> list[str]:
+    """Return uppercased section tokens, SG-friendly.
+
+    The base extractor (``src.strategies.base._extract_sections``) is the
+    canonical single-token form used by every US selector test. The SG cart
+    sometimes renders multi-word section labels (``Section: GEN ADM``,
+    ``Section GENERAL ADMISSION``) where the base extractor would only
+    capture the first token; this SG-side helper accepts a trailing run of
+    uppercase tokens so the section comparison matches both compact
+    (``GENADM``) and space-separated (``GEN ADM``) forms. The extractor
+    stops at newlines and at SG summary-row stop-words so the captured
+    value never spills into the ``Quantity ...`` / ``Subtotal ...`` lines.
+    """
+    out: list[str] = []
+    for m in _SG_SECTION_RE.finditer(text):
+        value = m.group(1).upper().strip()
+        if not value:
+            continue
+        # Trim at the first stop-word token so the section value never
+        # absorbs the next summary line when the inner-text concatenates
+        # the cells onto a single space-separated string.
+        tokens = value.split()
+        kept: list[str] = []
+        for tok in tokens:
+            if tok.lower() in _SG_SECTION_STOPWORDS:
+                break
+            kept.append(tok)
+        cleaned = " ".join(kept).strip()
+        if cleaned:
+            out.append(cleaned)
+    return out
+
+
+def _normalise_section(value: str) -> str:
+    """Compare-friendly section key: uppercase, whitespace collapsed.
+
+    ``GEN ADM`` and ``GENADM`` are treated as equal because the SG site
+    sometimes prints the label with a space and sometimes without; the
+    YAML config typically gives the compact form.
+    """
+    return "".join(value.upper().split())
 
 
 async def verify_cart_matches(
@@ -252,8 +324,9 @@ async def verify_cart_matches(
         return True
 
     if expected_candidate.section:
-        found_sections = {s.upper() for s in _extract_sections(text)}
-        if found_sections and expected_candidate.section.upper() not in found_sections:
+        found_sections = {_normalise_section(s) for s in _extract_sg_sections(text)}
+        expected_norm = _normalise_section(expected_candidate.section)
+        if found_sections and expected_norm not in found_sections:
             log.error(
                 "SG cart section mismatch: expected %s, summary shows %s",
                 expected_candidate.section,
