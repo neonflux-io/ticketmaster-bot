@@ -25,3 +25,5 @@ venv/
 .idea/
 .vscode/
 .DS_Store
+sessions/
+logs/

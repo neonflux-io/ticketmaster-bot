@@ -1,104 +1,86 @@
-"""Shared pytest fixtures + fakes for Playwright Page/Locator interfaces."""
+"""Shared pytest fixtures for real-Chromium tests.
+
+Provides a session-scoped headless Chromium browser, a function-scoped
+:class:`BrowserContext`, and a ``fixture_url`` helper that returns a
+``file://`` URL for any HTML asset under ``tests/fixtures/``. No test doubles
+are exposed — every DOM test runs against real Playwright.
+"""
+
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-# Make `src` importable when running pytest from the repo root.
+import pytest_asyncio
+from playwright.async_api import async_playwright
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext
+
+# Make ``src`` importable when running pytest from the repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-
-# --- Minimal async fake of a Playwright Locator + Page ---
-
-
-class FakeLocator:
-    """Lightweight stand-in for playwright.async_api.Locator."""
-
-    def __init__(
-        self,
-        text: str = "",
-        *,
-        visible: bool = True,
-        attrs: dict[str, str] | None = None,
-        children: list[FakeLocator] | None = None,
-    ) -> None:
-        self._text = text
-        self._visible = visible
-        self._attrs = attrs or {}
-        self._children = children or []
-        self.click_count = 0
-        self.scrolled = False
-        self.checked = False
-        self.selected_value: str | None = None
-
-    @property
-    def first(self) -> FakeLocator:
-        return self
-
-    def nth(self, _i: int) -> FakeLocator:
-        if self._children:
-            return self._children[_i]
-        return self
-
-    async def count(self) -> int:
-        return len(self._children)
-
-    async def inner_text(self, timeout: int | None = None) -> str:  # noqa: ARG002
-        return self._text
-
-    async def is_visible(self, timeout: int | None = None) -> bool:  # noqa: ARG002
-        return self._visible
-
-    async def is_checked(self) -> bool:
-        return self.checked
-
-    async def check(self) -> None:
-        self.checked = True
-
-    async def click(self, timeout: int | None = None) -> None:  # noqa: ARG002
-        self.click_count += 1
-
-    async def scroll_into_view_if_needed(self, timeout: int | None = None) -> None:  # noqa: ARG002
-        self.scrolled = True
-
-    async def wait_for(self, **_: Any) -> None:
-        return None
-
-    async def get_attribute(
-        self, name: str, timeout: int | None = None
-    ) -> str | None:  # noqa: ARG002
-        return self._attrs.get(name)
-
-    async def select_option(self, value: str) -> None:
-        self.selected_value = value
-
-    def locator(self, _sel: str) -> FakeLocator:
-        return self
+_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
-class FakePage:
-    """Tiny Playwright Page substitute - returns a fixed locator per selector."""
+@pytest_asyncio.fixture(scope="session")
+async def chromium() -> AsyncIterator[Browser]:
+    """Session-scoped real headless Chromium browser.
 
-    def __init__(
-        self,
-        locators: dict[str, FakeLocator] | None = None,
-        url: str = "https://www.ticketmaster.com/event/X",
-        title: str = "Event - Ticketmaster",
-    ) -> None:
-        self._locators = locators or {}
-        self.url = url
-        self._title = title
-        self.frames: list[Any] = []
-        self.content_text = ""
+    Launched once per pytest session and torn down at the end so the per-test
+    ``chromium_context`` fixture only pays the cost of opening a fresh
+    browser context (cheap) instead of launching a whole browser.
+    """
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        try:
+            yield browser
+        finally:
+            await browser.close()
 
-    def locator(self, selector: str) -> FakeLocator:
-        return self._locators.get(selector, FakeLocator(visible=False))
 
-    async def title(self) -> str:
-        return self._title
+@pytest_asyncio.fixture
+async def chromium_context(chromium: Browser) -> AsyncIterator[BrowserContext]:
+    """Function-scoped fresh BrowserContext.
 
-    async def content(self) -> str:
-        return self.content_text
+    Each test gets a brand-new context (which means a fresh cookie jar,
+    storage, etc.) that is closed in teardown so nothing leaks between tests.
+    """
+    context = await chromium.new_context()
+    try:
+        yield context
+    finally:
+        await context.close()
+
+
+@pytest_asyncio.fixture
+def fixture_url() -> Callable[[str], str]:
+    """Return a helper that builds a ``file://`` URL for an HTML fixture.
+
+    Accepted inputs:
+
+    * Bare name (``"quick_picks_basic"``) — resolved under
+      ``tests/fixtures/strategies/<name>.html``.
+    * Repo-relative path (``"tests/fixtures/strategies/sold_out.html"``).
+    * Fixtures-relative path (``"strategies/event_page.html"``).
+    """
+
+    def _url(name: str) -> str:
+        candidate = Path(name)
+        if candidate.is_absolute():
+            full = candidate.resolve()
+        elif name.startswith("tests/fixtures/"):
+            full = (_REPO_ROOT / candidate).resolve()
+        elif candidate.suffix == "":
+            full = (_FIXTURES_DIR / "strategies" / f"{name}.html").resolve()
+        else:
+            full = (_FIXTURES_DIR / candidate).resolve()
+        if not full.is_file():
+            raise FileNotFoundError(f"Fixture HTML not found: {full}")
+        return full.as_uri()
+
+    return _url

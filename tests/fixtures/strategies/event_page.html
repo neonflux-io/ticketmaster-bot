@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Event Page — Test Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 16px; }
+    [data-bdd='quick-picks-list'] { list-style: none; padding: 0; margin: 0; }
+    [data-bdd='quick-pick-row'] {
+      display: block;
+      padding: 12px 16px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <h1 data-bdd="event-title">Test Event — Live Tickets</h1>
+    <button data-bdd="best-available">Best Available</button>
+
+    <ul data-bdd="quick-picks-list">
+      <li data-bdd="quick-pick-row" data-idx="0">
+        Section 1 Row A — $50.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-idx="1">
+        Section 2 Row B — $60.00 each
+      </li>
+    </ul>
+
+    <section data-bdd="order-summary">Subtotal $250.00</section>
+    <button data-bdd="add-to-cart-button">Add to Cart</button>
+  </main>
+
+  <script>
+    window.__clicks = [];
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-bdd="quick-pick-row"]');
+      if (!row) return;
+      var idx = row.getAttribute('data-idx');
+      window.__clicks.push(idx);
+      var prev = parseInt(row.getAttribute('data-click-count') || '0', 10);
+      row.setAttribute('data-click-count', String(prev + 1));
+    }, true);
+  </script>
+</body>
+</html>
