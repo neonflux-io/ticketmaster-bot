@@ -23,6 +23,25 @@ accessible_seat_marker:
   - "[data-bdd='accessible-seat']"
   - "[aria-label*='accessible' i]"
 
+# --- interactive seat map -------------------------------------------------
+
+# The iframe (if any) that hosts an interactive seat-map SVG. The
+# ``InteractiveSeatmapStrategy`` first tries to click the seat in the
+# top-level frame; if no matching rect is found, it falls back to
+# every frame matching this selector.
+seatmap_frame:
+  - "iframe[data-bdd='seatmap-frame']"
+  - "iframe[title*='seat map' i]"
+  - "iframe[title*='seatmap' i]"
+  - "iframe[src*='seatmap' i]"
+
+# Top-level seat-map SVG element. Used only for diagnostic / readiness
+# probes; the actual click target is a ``<rect>`` matched by data-section,
+# data-row and data-seat attributes.
+seatmap_svg:
+  - "svg[data-bdd='seatmap-svg']"
+  - "[data-bdd='seatmap'] svg"
+
 quick_picks_list:
   - "[data-bdd='quick-picks-list']"
 

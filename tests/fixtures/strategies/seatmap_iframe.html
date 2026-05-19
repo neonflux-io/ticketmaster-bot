@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Seatmap (in iframe) — Strategy Test Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 16px; }
+    iframe { width: 360px; height: 360px; border: 1px solid #999; }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <h1 data-bdd="event-title">Test Event — Seat Map (iframed)</h1>
+    <!-- The seat-map lives inside an iframe; the strategy must use a
+         FrameLocator fallback when the top-level scope contains zero
+         seat rects. -->
+    <iframe data-bdd="seatmap-frame" title="seat map"
+            src="seatmap_svg.html"></iframe>
+  </main>
+</body>
+</html>

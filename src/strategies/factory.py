@@ -18,6 +18,7 @@ from .base import SelectionStrategy
 from .best_available import BestAvailableStrategy
 from .cheapest import CheapestStrategy
 from .composite import CompositeStrategy
+from .interactive_seatmap import InteractiveSeatmapStrategy
 from .multi_section import MultiSectionStrategy
 from .price_range import PriceRangeStrategy
 from .random_pick import RandomPickStrategy
@@ -47,6 +48,7 @@ def _register_default_strategies() -> None:
         "seat_quality": SeatQualityStrategy,
         "random_pick": RandomPickStrategy,
         "composite": CompositeStrategy,
+        "interactive_seatmap": InteractiveSeatmapStrategy,
     }
     for name, cls in defaults.items():
         if name in _strategy_registry.registry:

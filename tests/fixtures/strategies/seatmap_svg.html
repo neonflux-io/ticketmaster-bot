@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Seatmap — Strategy Test Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 16px; background: #fff; }
+    svg { border: 1px solid #ccc; background: #fafafa; display: block; }
+    rect.seat { fill: #cfe; stroke: #2a6; stroke-width: 1; cursor: pointer; }
+    rect.seat:hover { fill: #afd; }
+    .legend { margin-top: 8px; font-size: 0.85em; color: #555; }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <h1 data-bdd="event-title">Test Event — Interactive Seat Map</h1>
+    <p class="legend">5×5 grid: section 100, rows A–E, seats 1–5.</p>
+
+    <svg id="seatmap" width="320" height="320" viewBox="0 0 320 320"
+         data-bdd="seatmap-svg" role="img" aria-label="Seat map for section 100">
+      <!-- Row A -->
+      <rect class="seat" data-section="100" data-row="A" data-seat="1" x="10"  y="10"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="A" data-seat="2" x="70"  y="10"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="A" data-seat="3" x="130" y="10"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="A" data-seat="4" x="190" y="10"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="A" data-seat="5" x="250" y="10"  width="50" height="50"></rect>
+
+      <!-- Row B -->
+      <rect class="seat" data-section="100" data-row="B" data-seat="1" x="10"  y="70"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="B" data-seat="2" x="70"  y="70"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="B" data-seat="3" x="130" y="70"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="B" data-seat="4" x="190" y="70"  width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="B" data-seat="5" x="250" y="70"  width="50" height="50"></rect>
+
+      <!-- Row C -->
+      <rect class="seat" data-section="100" data-row="C" data-seat="1" x="10"  y="130" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="C" data-seat="2" x="70"  y="130" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="C" data-seat="3" x="130" y="130" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="C" data-seat="4" x="190" y="130" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="C" data-seat="5" x="250" y="130" width="50" height="50"></rect>
+
+      <!-- Row D -->
+      <rect class="seat" data-section="100" data-row="D" data-seat="1" x="10"  y="190" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="D" data-seat="2" x="70"  y="190" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="D" data-seat="3" x="130" y="190" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="D" data-seat="4" x="190" y="190" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="D" data-seat="5" x="250" y="190" width="50" height="50"></rect>
+
+      <!-- Row E -->
+      <rect class="seat" data-section="100" data-row="E" data-seat="1" x="10"  y="250" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="E" data-seat="2" x="70"  y="250" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="E" data-seat="3" x="130" y="250" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="E" data-seat="4" x="190" y="250" width="50" height="50"></rect>
+      <rect class="seat" data-section="100" data-row="E" data-seat="5" x="250" y="250" width="50" height="50"></rect>
+    </svg>
+  </main>
+
+  <script>
+    // Click recorder: every click bubbling out of a [data-section] rect pushes
+    // its (section, row, seat) tuple to window.__clicks, and bumps the rect's
+    // data-click-count attribute so tests can assert "this exact rect was
+    // clicked exactly once".
+    window.__clicks = [];
+    document.addEventListener('click', function (event) {
+      var target = event.target;
+      if (!target || target.tagName.toLowerCase() !== 'rect') {
+        target = target && target.closest ? target.closest('rect[data-section]') : null;
+      }
+      if (!target || !target.hasAttribute('data-section')) return;
+      window.__clicks.push({
+        section: target.getAttribute('data-section'),
+        row: target.getAttribute('data-row'),
+        seat: target.getAttribute('data-seat'),
+      });
+      var prev = parseInt(target.getAttribute('data-click-count') || '0', 10);
+      target.setAttribute('data-click-count', String(prev + 1));
+    }, true);
+  </script>
+</body>
+</html>
