@@ -4,6 +4,7 @@ The argparse surface lives in :mod:`src.cli`. This module is responsible
 for wiring the parsed namespace into config loading, vendor resolution,
 account selection, and the runner launch path.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,9 +38,7 @@ def _resolve_vendor_adapter(name: str) -> Any:
         return vendor_registry.get(name)
     except Exception as exc:
         available = ", ".join(sorted(vendor_registry.all())) or "<none>"
-        raise ValueError(
-            f"Unknown vendor {name!r}. Registered vendors: {available}"
-        ) from exc
+        raise ValueError(f"Unknown vendor {name!r}. Registered vendors: {available}") from exc
 
 
 async def main_async(args: argparse.Namespace | None = None) -> int:
@@ -132,6 +131,45 @@ async def main_async(args: argparse.Namespace | None = None) -> int:
     if args.dry_run:
         log.info("Dry run: config validated successfully. Exiting before launch.")
         return 0
+
+    # --- Parallel multi-account path ----------------------------------
+    # The orchestrator races one runner per configured account. We keep
+    # this path opt-in (--parallel) so single-account users get the
+    # historic single-context behaviour untouched.
+    if args.parallel:
+        from src.orchestrator.parallel import ParallelCoordinator
+
+        if not config.accounts:
+            log.error("--parallel requires at least one account in accounts.yaml")
+            return 2
+        if args.account_name and account is not None:
+            parallel_accounts = [account]
+        else:
+            parallel_accounts = list(config.accounts)
+        max_parallel = args.max_parallel if args.max_parallel is not None else 3
+        stagger_seconds = args.stagger_seconds if args.stagger_seconds is not None else 5.0
+
+        adapter_cls()  # validate the vendor adapter is constructible
+
+        def _factory(acct, cfg, _stop):  # noqa: ANN001 - inner closure
+            return adapter_cls().build_runner(cfg, account=acct)
+
+        coordinator = ParallelCoordinator(
+            accounts=parallel_accounts,
+            config=config,
+            max_parallel=max_parallel,
+            stagger_seconds=stagger_seconds,
+            runner_factory=_factory,
+        )
+        try:
+            success = await coordinator.run()
+        except KeyboardInterrupt:
+            log.warning("Interrupted by user")
+            return 130
+        except Exception:  # noqa: BLE001
+            log.exception("Parallel coordinator crashed")
+            return 1
+        return 0 if success else 1
 
     adapter = adapter_cls()
     runner = adapter.build_runner(config, account=account)
