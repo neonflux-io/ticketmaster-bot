@@ -179,7 +179,7 @@ def test_load_config_profile_fast_overrides_defaults(tmp_path):
         tmp_path / "missing.yaml",
         profile="fast",
     )
-    assert cfg.timing.humanize is False
+    assert cfg.timing.humanize.enabled is False
     assert cfg.timing.max_total_runtime_seconds == 600
     assert cfg.timing.hold_open_seconds == 0
 
@@ -344,7 +344,8 @@ def test_shipped_profile_fast_exists_and_has_expected_values():
     assert fast.is_file()
     data = yaml.safe_load(fast.read_text())
     timing = data.get("timing") or {}
-    assert timing.get("humanize") is False
+    humanize = timing.get("humanize") or {}
+    assert humanize.get("enabled") is False
     assert timing.get("max_total_runtime_seconds") == 600
     assert timing.get("hold_open_seconds") == 0
 
@@ -355,7 +356,8 @@ def test_shipped_profile_safe_exists_and_has_expected_values():
     data = yaml.safe_load(safe.read_text())
     timing = data.get("timing") or {}
     checkout = data.get("checkout") or {}
-    assert timing.get("humanize") is True
+    humanize = timing.get("humanize") or {}
+    assert humanize.get("enabled") is True
     assert timing.get("hold_open_seconds") == 1200
     assert checkout.get("auto_purchase") is False
 
@@ -393,7 +395,7 @@ def test_cli_explain_with_profile_fast_reflects_profile_values():
     result = _run_cli("--profile", "fast", "--explain")
     assert result.returncode == 0, result.stderr
     parsed = yaml.safe_load(result.stdout)
-    assert parsed["timing"]["humanize"] is False
+    assert parsed["timing"]["humanize"]["enabled"] is False
     assert parsed["timing"]["max_total_runtime_seconds"] == 600
     assert parsed["timing"]["hold_open_seconds"] == 0
 

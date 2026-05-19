@@ -7,6 +7,7 @@
 # ============================================================================
 
 timing:
-  humanize: false
+  humanize:
+    enabled: false
   max_total_runtime_seconds: 600
   hold_open_seconds: 0

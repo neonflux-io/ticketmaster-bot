@@ -159,6 +159,38 @@ class CheckoutConfig:
 
 
 @dataclass
+class HumanizeMouseConfig:
+    """Per-step settings for :func:`src.humanize.mouse.bezier_move`."""
+
+    enabled: bool = True
+    steps_min: int = 20
+    steps_max: int = 40
+    delay_ms_min: int = 8
+    delay_ms_max: int = 25
+
+
+@dataclass
+class HumanizeConfig:
+    """Container for humanisation subsystems.
+
+    ``enabled`` acts as the master switch and preserves the historic
+    ``timing.humanize: true|false`` shape; sub-blocks (``mouse``, future
+    ``typing``, ``warmer``…) carry their own ``enabled`` flag so any
+    subsystem can be disabled independently.
+
+    ``__bool__`` returns ``enabled`` so the existing call-sites
+    (``if cfg.timing.humanize:`` / ``bool(cfg.timing.humanize)``) keep
+    working without changes.
+    """
+
+    enabled: bool = False
+    mouse: HumanizeMouseConfig = field(default_factory=HumanizeMouseConfig)
+
+    def __bool__(self) -> bool:  # pragma: no cover - trivial
+        return bool(self.enabled)
+
+
+@dataclass
 class TimingConfig:
     page_timeout_seconds: float = 30.0
     queue_check_interval_seconds: float = 5.0
@@ -167,8 +199,10 @@ class TimingConfig:
     # How long to leave a non-headless browser open after the flow ends so the
     # human can complete a manual checkout. Default 10 minutes.
     hold_open_seconds: float = 600.0
-    # When false, random_human_delay calls are no-ops (faster on-sale racing).
-    humanize: bool = False
+    # When ``humanize.enabled`` is false, random_human_delay calls are
+    # no-ops (faster on-sale racing). The structured form also carries
+    # per-subsystem settings (currently ``mouse``).
+    humanize: HumanizeConfig = field(default_factory=HumanizeConfig)
 
 
 @dataclass
@@ -706,6 +740,50 @@ def _parse_checkout(raw: dict[str, Any]) -> CheckoutConfig:
     )
 
 
+def _parse_humanize(raw: Any) -> HumanizeConfig:
+    """Parse ``timing.humanize`` accepting both bool and nested-dict shapes.
+
+    The historic shape is a plain bool (``humanize: true``); new code
+    uses a nested mapping with per-subsystem settings (``mouse``…). Both
+    must keep working so existing configs/profiles don't have to change.
+    """
+    if raw is None or isinstance(raw, bool):
+        return HumanizeConfig(enabled=bool(raw))
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"timing.humanize must be a bool or mapping, got {type(raw).__name__}"
+        )
+    mouse_raw = raw.get("mouse", {}) or {}
+    if not isinstance(mouse_raw, dict):
+        raise ValueError(
+            f"timing.humanize.mouse must be a mapping, got {type(mouse_raw).__name__}"
+        )
+    defaults = HumanizeMouseConfig()
+    steps_min = int(mouse_raw.get("steps_min", defaults.steps_min))
+    steps_max = int(mouse_raw.get("steps_max", defaults.steps_max))
+    delay_ms_min = int(mouse_raw.get("delay_ms_min", defaults.delay_ms_min))
+    delay_ms_max = int(mouse_raw.get("delay_ms_max", defaults.delay_ms_max))
+    if steps_min < 1 or steps_max < steps_min:
+        raise ValueError(
+            "timing.humanize.mouse.steps_min/steps_max must satisfy 1 <= min <= max"
+        )
+    if delay_ms_min < 0 or delay_ms_max < delay_ms_min:
+        raise ValueError(
+            "timing.humanize.mouse.delay_ms_min/delay_ms_max must satisfy 0 <= min <= max"
+        )
+    mouse_cfg = HumanizeMouseConfig(
+        enabled=bool(mouse_raw.get("enabled", defaults.enabled)),
+        steps_min=steps_min,
+        steps_max=steps_max,
+        delay_ms_min=delay_ms_min,
+        delay_ms_max=delay_ms_max,
+    )
+    return HumanizeConfig(
+        enabled=bool(raw.get("enabled", False)),
+        mouse=mouse_cfg,
+    )
+
+
 def _parse_timing(raw: dict[str, Any]) -> TimingConfig:
     timing_raw = raw.get("timing", {}) or {}
     delays = timing_raw.get("action_delay_seconds", [0.5, 2.0])
@@ -727,7 +805,7 @@ def _parse_timing(raw: dict[str, Any]) -> TimingConfig:
             timing_raw.get("max_total_runtime_seconds", 3600.0)
         ),
         hold_open_seconds=float(timing_raw.get("hold_open_seconds", 600.0)),
-        humanize=bool(timing_raw.get("humanize", False)),
+        humanize=_parse_humanize(timing_raw.get("humanize", False)),
     )
 
 
@@ -897,6 +975,8 @@ __all__ = [
     "CheckoutConfig",
     "DeliveryConfig",
     "EventConfig",
+    "HumanizeConfig",
+    "HumanizeMouseConfig",
     "InnerStrategyConfig",
     "LoggingConfig",
     "MultiSectionConfig",

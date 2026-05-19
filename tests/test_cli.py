@@ -423,7 +423,7 @@ def test_cli_full_flag_combination_explain(tmp_path):
     urls = [e["url"] for e in parsed["events"]]
     assert urls == ["https://www.ticketmaster.com/event/FROM-CLI"]
     # Profile 'fast' brings humanize=false.
-    assert parsed["timing"]["humanize"] is False
+    assert parsed["timing"]["humanize"]["enabled"] is False
 
 
 # ---------------------------------------------------------------------------

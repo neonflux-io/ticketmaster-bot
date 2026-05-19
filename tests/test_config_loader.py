@@ -123,7 +123,7 @@ def test_load_config_minimal(tmp_path, monkeypatch):
     assert cfg.event.url.endswith("/event/X")
     assert cfg.tickets.quantity == 2
     assert cfg.checkout.auto_purchase is False
-    assert cfg.timing.humanize is False
+    assert cfg.timing.humanize.enabled is False
     assert cfg.timing.hold_open_seconds == 600.0
     assert cfg.browser.stealth.enabled is True
 

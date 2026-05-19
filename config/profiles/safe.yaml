@@ -8,7 +8,8 @@
 # ============================================================================
 
 timing:
-  humanize: true
+  humanize:
+    enabled: true
   hold_open_seconds: 1200
 
 checkout:

@@ -68,11 +68,20 @@ timing:
   page_timeout_seconds: 30
   queue_check_interval_seconds: 5
   # Random delay range between human-like actions [min, max], used when
-  # humanize: true. When humanize: false (default) these are not applied.
+  # humanize.enabled: true. When false (default) these are not applied.
   action_delay_seconds: [0.5, 2.0]
-  # When true, the bot inserts randomized delays between actions to mimic a
-  # human. Off by default because on-sale racing wants to be fast.
-  humanize: false
+  # Humanisation subsystems. The master ``enabled`` flag preserves the
+  # historic ``humanize: true|false`` semantics; per-subsystem blocks
+  # (``mouse``, future ``typing``, ``warmer``…) carry their own switches.
+  humanize:
+    enabled: false
+    # Cubic-Bezier cursor moves via ``src.humanize.mouse.bezier_move``.
+    mouse:
+      enabled: true
+      steps_min: 20
+      steps_max: 40
+      delay_ms_min: 8
+      delay_ms_max: 25
   # Hard cap on total runtime.
   max_total_runtime_seconds: 3600
   # When the browser is visible and auto_purchase is false, keep the window
