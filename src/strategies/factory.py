@@ -17,8 +17,10 @@ from .accessible import AccessibleStrategy
 from .base import SelectionStrategy
 from .best_available import BestAvailableStrategy
 from .cheapest import CheapestStrategy
+from .composite import CompositeStrategy
 from .multi_section import MultiSectionStrategy
 from .price_range import PriceRangeStrategy
+from .random_pick import RandomPickStrategy
 from .seat_quality import SeatQualityStrategy
 from .section_target import SectionTargetStrategy
 
@@ -27,6 +29,7 @@ if TYPE_CHECKING:
 
 
 # --- registry wiring -------------------------------------------------------
+
 
 # Register every shipped strategy class under its config key. Calls are
 # idempotent across re-imports because the registry raises
@@ -42,6 +45,8 @@ def _register_default_strategies() -> None:
         "multi_section": MultiSectionStrategy,
         "accessible": AccessibleStrategy,
         "seat_quality": SeatQualityStrategy,
+        "random_pick": RandomPickStrategy,
+        "composite": CompositeStrategy,
     }
     for name, cls in defaults.items():
         if name in _strategy_registry.registry:
