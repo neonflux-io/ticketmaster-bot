@@ -15,6 +15,7 @@ The single-event ``event: {...}`` key continues to load. Internally it is
 normalised into a one-element ``events: [...]`` list so the rest of the
 codebase only needs to handle one shape.
 """
+
 from __future__ import annotations
 
 import copy
@@ -247,6 +248,10 @@ class BrowserConfig:
     user_data_dir: str = "sessions/default"
     locale: str = "en-US"
     timezone: str = "America/New_York"
+    # Per-context fingerprint preset: ``desktop`` keeps the historic
+    # 1366x900 / no-touch behaviour; ``mobile`` switches to a 390x844
+    # touch-enabled iPhone profile (see :mod:`src.humanize.profile`).
+    profile: str = "desktop"
     stealth: StealthConfig = field(default_factory=StealthConfig)
 
 
@@ -293,11 +298,7 @@ def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]
     """
     result: dict[str, Any] = copy.deepcopy(base)
     for key, value in overlay.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = copy.deepcopy(value)
@@ -368,9 +369,7 @@ def _expand_env(value: Any) -> Any:
 def _validate_event_url(url: str, strict: bool) -> None:
     parsed = urlparse(url)
     if not parsed.scheme.startswith("http"):
-        raise ValueError(
-            f"event.url must be an http(s) URL, got {url!r}"
-        )
+        raise ValueError(f"event.url must be an http(s) URL, got {url!r}")
     host = (parsed.hostname or "").lower()
     if not host:
         raise ValueError(f"event.url has no host: {url!r}")
@@ -383,6 +382,7 @@ def _validate_event_url(url: str, strict: bool) -> None:
         if strict:
             raise ValueError(msg)
         import logging
+
         logging.getLogger("ticketmaster-bot").warning(msg)
 
 
@@ -396,8 +396,7 @@ def _resolve_profile_path(name: str, profiles_dir: Path) -> Path:
     candidate = profiles_dir / f"{name}.yaml"
     if not candidate.is_file():
         raise FileNotFoundError(
-            f"Profile {name!r} not found at {candidate}. "
-            f"Add the file or remove --profile."
+            f"Profile {name!r} not found at {candidate}. Add the file or remove --profile."
         )
     return candidate
 
@@ -428,17 +427,28 @@ def _parse_browser(raw: dict[str, Any]) -> BrowserConfig:
         user_agent=stealth_raw.get("user_agent"),
         extra_http_headers=dict(extra_headers),
         webgl_vendor=str(stealth_raw.get("webgl_vendor", "Intel Inc.")),
-        webgl_renderer=str(
-            stealth_raw.get("webgl_renderer", "Intel Iris OpenGL Engine")
-        ),
+        webgl_renderer=str(stealth_raw.get("webgl_renderer", "Intel Iris OpenGL Engine")),
         viewport_jitter=int(stealth_raw.get("viewport_jitter", 30)),
     )
+    profile_name = str(browser_raw.get("profile", "desktop"))
+    # Imported lazily to avoid a circular import between humanize.profile
+    # (which references this module's BrowserConfig in TYPE_CHECKING) and
+    # the loader itself. The validation set is cheap to evaluate at load
+    # time and produces a precise error for bad config names.
+    from ..humanize.profile import VALID_PROFILES
+
+    if profile_name not in VALID_PROFILES:
+        raise ValueError(
+            f"browser.profile {profile_name!r} is invalid. "
+            f"Valid options: {', '.join(sorted(VALID_PROFILES))}"
+        )
     return BrowserConfig(
         headless=bool(browser_raw.get("headless", False)),
         slow_mo_ms=int(browser_raw.get("slow_mo_ms", 0)),
         user_data_dir=browser_raw.get("user_data_dir", "sessions/default"),
         locale=browser_raw.get("locale", "en-US"),
         timezone=browser_raw.get("timezone", "America/New_York"),
+        profile=profile_name,
         stealth=stealth,
     )
 
@@ -473,9 +483,7 @@ def _parse_events(raw: dict[str, Any], browser_tz: str) -> list[EventConfig]:
         parsed.append(
             EventConfig(
                 url=entry["url"],
-                on_sale_time=_parse_datetime(
-                    entry.get("on_sale_time"), fallback_tz=browser_tz
-                ),
+                on_sale_time=_parse_datetime(entry.get("on_sale_time"), fallback_tz=browser_tz),
                 refresh_interval_seconds=float(entry.get("refresh_interval_seconds", 2.0)),
                 strict_host=strict_host,
             )
@@ -507,9 +515,7 @@ def _parse_section_target(raw: dict[str, Any], prefix: str) -> SectionTargetConf
             or len(row_range_raw) != 2
             or not all(isinstance(r, str) for r in row_range_raw)
         ):
-            raise ValueError(
-                f"{prefix}.section_target.row_range must be [low, high] strings"
-            )
+            raise ValueError(f"{prefix}.section_target.row_range must be [low, high] strings")
     return SectionTargetConfig(
         section=section_target_raw.get("section"),
         row_range=row_range_raw,
@@ -520,9 +526,7 @@ def _parse_section_target(raw: dict[str, Any], prefix: str) -> SectionTargetConf
 def _parse_price_range(raw: dict[str, Any], prefix: str) -> PriceRangeConfig:
     price_range_raw = raw.get("price_range", {}) or {}
     if not isinstance(price_range_raw, dict):
-        raise ValueError(
-            f"{prefix}.price_range must be a mapping with min_price/max_price"
-        )
+        raise ValueError(f"{prefix}.price_range must be a mapping with min_price/max_price")
     return PriceRangeConfig(
         min_price=_coerce_optional_float(
             price_range_raw.get("min_price"), f"{prefix}.price_range.min_price"
@@ -536,18 +540,14 @@ def _parse_price_range(raw: dict[str, Any], prefix: str) -> PriceRangeConfig:
 def _parse_multi_section(raw: dict[str, Any], prefix: str) -> MultiSectionConfig:
     multi_section_raw = raw.get("multi_section", {}) or {}
     if not isinstance(multi_section_raw, dict):
-        raise ValueError(
-            f"{prefix}.multi_section must be a mapping with a sections list"
-        )
+        raise ValueError(f"{prefix}.multi_section must be a mapping with a sections list")
     sections_raw = multi_section_raw.get("sections")
     if sections_raw is None:
         return MultiSectionConfig(sections=[])
     if not isinstance(sections_raw, list) or not all(
         isinstance(s, str) and s.strip() for s in sections_raw
     ):
-        raise ValueError(
-            f"{prefix}.multi_section.sections must be a list of non-empty strings"
-        )
+        raise ValueError(f"{prefix}.multi_section.sections must be a list of non-empty strings")
     return MultiSectionConfig(sections=[s.strip() for s in sections_raw])
 
 
@@ -585,9 +585,7 @@ def _validate_strategy_constraints(
         )
 
 
-def _parse_inner_strategy(
-    raw: dict[str, Any] | None, prefix: str
-) -> InnerStrategyConfig:
+def _parse_inner_strategy(raw: dict[str, Any] | None, prefix: str) -> InnerStrategyConfig:
     """Parse the nested ``tickets.inner_strategy:`` block.
 
     Wrapper strategies (``resale_filter``, ``vfan_aware``) must be told
@@ -662,16 +660,12 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
     inner_strategy_raw = tickets_raw.get("inner_strategy")
     inner_strategy: InnerStrategyConfig | None
     if strategy in _WRAPPER_STRATEGIES:
-        inner_strategy = _parse_inner_strategy(
-            inner_strategy_raw, "tickets.inner_strategy"
-        )
+        inner_strategy = _parse_inner_strategy(inner_strategy_raw, "tickets.inner_strategy")
     else:
         if inner_strategy_raw is not None:
             # Parse for validity but the field is meaningful only for
             # wrapper strategies; we still surface mistakes early.
-            inner_strategy = _parse_inner_strategy(
-                inner_strategy_raw, "tickets.inner_strategy"
-            )
+            inner_strategy = _parse_inner_strategy(inner_strategy_raw, "tickets.inner_strategy")
         else:
             inner_strategy = None
 
@@ -696,18 +690,12 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
     )
 
     if tickets.strategy == "resale_filter":
-        if (
-            tickets.resale_filter.include_resale
-            and tickets.resale_filter.exclude_resale
-        ):
+        if tickets.resale_filter.include_resale and tickets.resale_filter.exclude_resale:
             raise ValueError(
                 "tickets.resale_filter: set exactly one of include_resale or "
                 "exclude_resale, not both"
             )
-        if (
-            not tickets.resale_filter.include_resale
-            and not tickets.resale_filter.exclude_resale
-        ):
+        if not tickets.resale_filter.include_resale and not tickets.resale_filter.exclude_resale:
             raise ValueError(
                 "tickets.strategy='resale_filter' requires "
                 "tickets.resale_filter.include_resale=true or "
@@ -718,14 +706,11 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
         code = tickets.vfan_aware.code
         if not code or not code.strip():
             raise ValueError(
-                "tickets.strategy='vfan_aware' requires a non-empty "
-                "tickets.vfan_aware.code"
+                "tickets.strategy='vfan_aware' requires a non-empty tickets.vfan_aware.code"
             )
 
     if not 1 <= tickets.quantity <= 8:
-        raise ValueError(
-            f"tickets.quantity must be between 1 and 8, got {tickets.quantity}"
-        )
+        raise ValueError(f"tickets.quantity must be between 1 and 8, got {tickets.quantity}")
     return tickets
 
 
@@ -761,23 +746,17 @@ def _parse_humanize(raw: Any) -> HumanizeConfig:
     if raw is None or isinstance(raw, bool):
         return HumanizeConfig(enabled=bool(raw))
     if not isinstance(raw, dict):
-        raise ValueError(
-            f"timing.humanize must be a bool or mapping, got {type(raw).__name__}"
-        )
+        raise ValueError(f"timing.humanize must be a bool or mapping, got {type(raw).__name__}")
     mouse_raw = raw.get("mouse", {}) or {}
     if not isinstance(mouse_raw, dict):
-        raise ValueError(
-            f"timing.humanize.mouse must be a mapping, got {type(mouse_raw).__name__}"
-        )
+        raise ValueError(f"timing.humanize.mouse must be a mapping, got {type(mouse_raw).__name__}")
     defaults = HumanizeMouseConfig()
     steps_min = int(mouse_raw.get("steps_min", defaults.steps_min))
     steps_max = int(mouse_raw.get("steps_max", defaults.steps_max))
     delay_ms_min = int(mouse_raw.get("delay_ms_min", defaults.delay_ms_min))
     delay_ms_max = int(mouse_raw.get("delay_ms_max", defaults.delay_ms_max))
     if steps_min < 1 or steps_max < steps_min:
-        raise ValueError(
-            "timing.humanize.mouse.steps_min/steps_max must satisfy 1 <= min <= max"
-        )
+        raise ValueError("timing.humanize.mouse.steps_min/steps_max must satisfy 1 <= min <= max")
     if delay_ms_min < 0 or delay_ms_max < delay_ms_min:
         raise ValueError(
             "timing.humanize.mouse.delay_ms_min/delay_ms_max must satisfy 0 <= min <= max"
@@ -830,13 +809,9 @@ def _parse_timing(raw: dict[str, Any]) -> TimingConfig:
         raise ValueError("timing.action_delay_seconds must satisfy 0 <= min <= max")
     return TimingConfig(
         page_timeout_seconds=float(timing_raw.get("page_timeout_seconds", 30.0)),
-        queue_check_interval_seconds=float(
-            timing_raw.get("queue_check_interval_seconds", 5.0)
-        ),
+        queue_check_interval_seconds=float(timing_raw.get("queue_check_interval_seconds", 5.0)),
         action_delay_seconds=[delay_min, delay_max],
-        max_total_runtime_seconds=float(
-            timing_raw.get("max_total_runtime_seconds", 3600.0)
-        ),
+        max_total_runtime_seconds=float(timing_raw.get("max_total_runtime_seconds", 3600.0)),
         hold_open_seconds=float(timing_raw.get("hold_open_seconds", 600.0)),
         humanize=_parse_humanize(timing_raw.get("humanize", False)),
     )
@@ -846,9 +821,7 @@ def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
     logging_raw = raw.get("logging", {}) or {}
     level = str(logging_raw.get("level", "INFO")).upper()
     if level not in _VALID_LOG_LEVELS:
-        raise ValueError(
-            f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}"
-        )
+        raise ValueError(f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}")
     return LoggingConfig(
         level=level,
         file=logging_raw.get("file", "logs/bot.log"),

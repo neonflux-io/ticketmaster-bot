@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from playwright.async_api import async_playwright
 
+from ...humanize.profile import apply_profile
 from ...strategies.factory import build_strategy
 from ...utils.notifier import notify
 from ...utils.retry import maybe_human_delay
@@ -59,8 +60,29 @@ class BotRunner:
             else {"width": 1366, "height": 900}
         )
 
+        # Resolve the per-context fingerprint preset (desktop / mobile)
+        # into the small set of overrides Playwright accepts. The
+        # profile helper overwrites viewport + is_mobile + has_touch so
+        # a mobile profile can't be diluted by the desktop-only values
+        # computed above. A caller-set ``user_agent`` (from
+        # stealth_cfg.user_agent) still wins because
+        # ``apply_mobile_profile`` only sets the mobile UA when
+        # ``user_agent`` is unset.
+        profile_overrides: dict[str, object] = {"viewport": viewport}
+        if user_agent is not None:
+            profile_overrides["user_agent"] = user_agent
+        apply_profile(cfg.browser.profile, profile_overrides)
+        resolved_viewport: dict[str, int] = profile_overrides["viewport"]  # type: ignore[assignment]
+        resolved_user_agent: str | None = profile_overrides.get("user_agent")  # type: ignore[assignment]
+        is_mobile = bool(profile_overrides.get("is_mobile", False))
+        has_touch = bool(profile_overrides.get("has_touch", False))
+
         async with async_playwright() as p:
-            log.info("Launching browser (headless=%s)", cfg.browser.headless)
+            log.info(
+                "Launching browser (headless=%s, profile=%s)",
+                cfg.browser.headless,
+                cfg.browser.profile,
+            )
             # --disable-blink-features=AutomationControlled removes one
             # automation tell. apply_stealth() handles the others.
             context = await p.chromium.launch_persistent_context(
@@ -69,8 +91,10 @@ class BotRunner:
                 slow_mo=cfg.browser.slow_mo_ms,
                 locale=cfg.browser.locale,
                 timezone_id=cfg.browser.timezone,
-                viewport=viewport,
-                user_agent=user_agent,
+                viewport=resolved_viewport,
+                user_agent=resolved_user_agent,
+                is_mobile=is_mobile,
+                has_touch=has_touch,
                 args=[
                     "--disable-blink-features=AutomationControlled",
                     "--no-default-browser-check",

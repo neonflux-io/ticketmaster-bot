@@ -96,6 +96,12 @@ browser:
   locale: "en-US"
   timezone: "America/New_York"
 
+  # Per-context fingerprint preset. "desktop" keeps the historic 1366x900
+  # / no-touch behaviour. "mobile" switches to a 390x844 touch-enabled
+  # iPhone profile so navigator.maxTouchPoints > 0 and
+  # matchMedia('(pointer: coarse)') matches.
+  profile: "desktop"
+
   # Browser-fingerprint hardening. Removes the most obvious automation tells
   # (navigator.webdriver, missing plugins/languages, WebGL vendor) and lets you
   # override the UA and headers. Not a guarantee against detection.
