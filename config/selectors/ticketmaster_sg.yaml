@@ -192,6 +192,108 @@ queue_position_text:
   - "text=/people ahead of you/i"
   - "[class*='queue-position']"
 
+# ----- cart page (/ticket/checkout/<gameCode>/<dateId>/<areaNo>/<qty>) ----
+
+# The cart page is the same SG Yii/Bootstrap stack as the rest of the
+# site; the user lands here after the captcha + login dance. Selectors
+# below were sourced from the F7.4 hand-built cart.html fixture, which
+# in turn mirrors recon-verified ids/classes from the live ticket-area
+# and check-captcha pages (see docs/recon/ticketmaster_sg.md and the
+# banner-comment in tests/fixtures/vendors/ticketmaster_sg/cart.html).
+
+# Quantity dropdown on the cart page (same select[name='TicketForm[count]']
+# the live ticket-area page uses pre-cart).
+cart_quantity_select:
+  - "select#TicketForm_count"
+  - "select[name='TicketForm[count]']"
+
+# Terms-of-purchase checkbox. The SG site reuses input#TicketForm_agree
+# (the same id seen on /ticket/check-captcha/).
+cart_terms_checkbox:
+  - "input#TicketForm_agree"
+  - "input[type='checkbox'][name='TicketForm[agree]']"
+  - "input[type='checkbox'][name='CheckoutForm[agree]']"
+
+# Marketing opt-in checkboxes the cart accept_terms helper MUST avoid.
+cart_marketing_opt_in:
+  - "input#TicketForm_marketingOptIn"
+  - "input#CheckoutForm_marketingOptIn"
+  - "input[type='checkbox'][name*='marketingOptIn']"
+
+# "Add to Cart" / "Best Available" submit button on the cart page.
+# Reuses button#autoMode (the same id observed on the live ticket-area
+# Best Available control).
+cart_add_to_cart_button:
+  - "button#autoMode"
+  - "form#form-ticket-cart button[type='submit']"
+
+# URL substrings that prove the browser has transitioned to the SG cart
+# / order-summary page (consumed by verify_cart_in_cart).
+cart_url_markers:
+  - "/ticket/checkout/"
+  - "/cart"
+
+# DOM markers (page-level) that prove the cart page itself rendered.
+# Used as a fallback when the URL alone is ambiguous.
+cart_page_indicators:
+  - "section#sec-cart"
+  - "table#cartTable"
+  - "form#form-ticket-cart"
+  - "div#cartSummary"
+
+# Order summary / cart total node — read by verify_cart_matches.
+cart_order_total:
+  - "#cartOrderTotal"
+  - "#checkoutOrderTotal"
+  - ".cart-total"
+  - "td.cart-total"
+
+cart_order_summary:
+  - "div#orderSummary"
+  - "section#sec-cart"
+  - "div#cartSummary"
+
+# ----- checkout page (delivery + payment) ----------------------------------
+
+# Generic delivery <input type="radio"> control set.
+checkout_delivery_radio:
+  - "input.delivery-radio"
+  - "input[type='radio'][name='CheckoutForm[deliveryMethod]']"
+  - "div#deliveryFieldset input[type='radio']"
+
+# Label-text template used to match a specific delivery option by its
+# visible label (joined via :has-text). The "{keyword}" placeholder is
+# rendered by src.registry.selectors.locator_template / selector_for_template.
+checkout_delivery_option_label_template:
+  - "label.form-check-label:has-text('{keyword}')"
+  - "div.delivery-option label:has-text('{keyword}')"
+
+# Generic saved-card radio (used as a fallback when last-four is None).
+checkout_saved_card_radio:
+  - "input.saved-card-radio"
+  - "div.payment-option.saved-card input[type='radio']"
+
+# Saved-card-by-last-four label template. The "{last_four}" placeholder
+# is rendered by selector_for_template. Matches both the SG-canonical
+# 'Visa ending in 4242' AND the alternative 'Mastercard **** 4242'.
+checkout_saved_card_label_template:
+  - "label.form-check-label:has-text('ending in {last_four}')"
+  - "label.form-check-label:has-text('**** {last_four}')"
+  - "input.saved-card-radio[data-last-four='{last_four}']"
+
+# Place-Order / final submit button (only ever clicked when
+# auto_purchase=true).
+checkout_place_order_button:
+  - "button#placeOrderButton"
+  - "button:has-text('Place Order')"
+  - "button:has-text('Confirm & Pay')"
+
+# Order-confirmation page markers (used by _verify_order_placed).
+checkout_order_confirmation:
+  - "[data-page='confirmation']"
+  - "h1:has-text('Order Confirmation')"
+  - "div#orderConfirmation"
+
 # ----- page-level state markers --------------------------------------------
 
 # The SG navigator/state-detector uses these to classify a page when

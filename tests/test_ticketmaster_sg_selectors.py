@@ -111,8 +111,7 @@ def test_required_logical_name_present(name: str) -> None:
 def test_trusted_hosts_contains_ticketmaster_sg() -> None:
     """F7.2: add 'ticketmaster.sg' to _DEFAULT_TRUSTED_HOSTS."""
     assert "ticketmaster.sg" in _DEFAULT_TRUSTED_HOSTS, (
-        f"'ticketmaster.sg' must be in _DEFAULT_TRUSTED_HOSTS, got "
-        f"{_DEFAULT_TRUSTED_HOSTS!r}"
+        f"'ticketmaster.sg' must be in _DEFAULT_TRUSTED_HOSTS, got {_DEFAULT_TRUSTED_HOSTS!r}"
     )
 
 

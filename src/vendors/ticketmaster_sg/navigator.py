@@ -140,7 +140,8 @@ def parse_sg_date(value: str, *, tz: str = "Asia/Singapore") -> datetime:
             hour = hour if hour == 12 else hour + 12
 
     # Resolve the timezone. Asia/Singapore is UTC+08:00 fixed.
-    from datetime import timedelta, tzinfo as _Tz
+    from datetime import timedelta
+    from datetime import tzinfo as _Tz
 
     tzinfo: _Tz
     try:

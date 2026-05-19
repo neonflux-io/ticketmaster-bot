@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for the ticketmaster.sg cart / "your reserved tickets"
+ page that the SG flow lands on AFTER the user has cleared the
+ /ticket/check-captcha gate and clicked Best Available.
+
+ PROVENANCE:
+ The live cart page itself was NOT captured first-hand during F7.4: the
+ SG site gates cart strictly behind a logged-in account *and* a live
+ captcha solve (both Yii image-CAPTCHA on /ticket/check-captcha and
+ invisible reCAPTCHA Enterprise on auth.ticketmaster.com OAuth). The
+ delegated worker session has no human-in-the-loop available to forward
+ captcha solving to, so the live DOM dump was deferred — see
+ docs/recon/ticketmaster_sg.md "What we could not verify in F7.1" and
+ the F7.4 handoff for the full block reason.
+
+ This fixture is therefore hand-built but every selector, class, id,
+ form name, and price format mirrors evidence that IS in the F7.1
+ recon corpus:
+   * Yii + Bootstrap 5 + jQuery stack: confirmed by
+     docs/recon/ticketmaster_sg/03_seat_selection.html and the
+     04_captcha.html snapshot (Yii form ids `form-ticket-ticket`,
+     `form-ticket-check-captcha`; `TicketForm[...]` field names).
+   * Add-to-Cart trigger is `button#autoMode` "Best Available": see
+     docs/recon/ticketmaster_sg.md "Selector inventory" + the
+     tests/fixtures/vendors/ticketmaster_sg/ticket_area.html fixture.
+   * Price format on the live event is bare `$144.00` for SGD: see
+     docs/recon/ticketmaster_sg.md "Currency parsing notes".
+   * Terms checkbox is `input#TicketForm_agree`: see
+     docs/recon/ticketmaster_sg.md and the 04_captcha.html snapshot.
+   * Cart URL pattern is /ticket/checkout/: confirmed by the recon
+     URL-pattern table ("ticketmaster.sg/ticket/checkout/...").
+   * Quantity field is select[name='TicketForm[count]']: confirmed by
+     the ticket_area.html fixture.
+
+ The live DOM capture is tracked as a follow-up by F7.6 (live e2e),
+ which already plans to drive a headed Chromium with the user's creds
+ against the real site and can re-dump this file in place.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your Reserved Tickets | Ticketmaster SG</title>
+  </head>
+  <body data-page="cart">
+    <main id="content">
+      <section id="sec-cart" class="container">
+        <h1>Your Reserved Tickets</h1>
+
+        <div id="cartSummary" class="alert alert-info">
+          <p>
+            You have reserved
+            <span id="cartQty" class="text-bold">2</span>
+            tickets for
+            <strong>PGL CS 2 Major Singapore 2026</strong>.
+          </p>
+          <p>
+            Section <strong>GENADM</strong> &middot; 10 Dec 2026 (Thu.) 05:00 pm
+            &lt;Singapore Indoor Stadium&gt;
+          </p>
+        </div>
+
+        <form
+          id="form-ticket-cart"
+          action="/ticket/checkout/26sg_pglcs2major/3239/1/2"
+          method="post"
+        >
+          <input
+            type="hidden"
+            name="_csrf"
+            value="cart-csrf-placeholder-from-fixture"
+          />
+
+          <table
+            id="cartTable"
+            class="table table-bordered text-center mgt-16"
+          >
+            <thead>
+              <tr>
+                <th>Ticket Type</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="cart-row-005" class="ticket-row">
+                <td class="ticketpricetext">Standard</td>
+                <td>
+                  <label class="visually-hidden" for="TicketForm_count">Quantity</label>
+                  <select
+                    name="TicketForm[count]"
+                    id="TicketForm_count"
+                    class="form-select"
+                  >
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                  </select>
+                </td>
+                <td class="text-end">$144.00</td>
+                <td class="text-end text-bold">$288.00</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" class="text-end">Booking Fee</td>
+                <td class="text-end">$8.00</td>
+              </tr>
+              <tr>
+                <td colspan="3" class="text-end">Total</td>
+                <td
+                  id="cartOrderTotal"
+                  class="text-end text-bold cart-total"
+                  data-currency="SGD"
+                >
+                  $296.00
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div id="orderSummary" class="order-summary">
+            <h2>Order Summary</h2>
+            <ul>
+              <li>Section <strong>GENADM</strong></li>
+              <li>Quantity <strong>2 tickets</strong></li>
+              <li>
+                Subtotal <strong>SGD 288.00</strong>
+              </li>
+              <li>Booking Fee <strong>S$8.00</strong></li>
+              <li>Total <strong class="cart-total">$296.00</strong></li>
+            </ul>
+          </div>
+
+          <fieldset id="termsFieldset" class="mgt-16">
+            <legend class="visually-hidden">Terms</legend>
+            <div class="form-check">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="TicketForm_agree"
+                name="TicketForm[agree]"
+                value="1"
+              />
+              <label class="form-check-label" for="TicketForm_agree">
+                I agree to the
+                <a href="/terms" target="_blank">Conditions of Purchase</a>
+                and
+                <a href="/privacy" target="_blank">Privacy Policy</a>.
+              </label>
+            </div>
+
+            <div class="form-check mgt-6">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="TicketForm_marketingOptIn"
+                name="TicketForm[marketingOptIn]"
+                value="1"
+              />
+              <label
+                class="form-check-label"
+                for="TicketForm_marketingOptIn"
+              >
+                Send me promotional newsletters, offers and marketing emails
+                from Ticketmaster Singapore.
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="text-center mgt-16">
+            <button
+              type="button"
+              id="autoMode"
+              class="btn btn-primary btn-lg"
+            >
+              Best Available
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

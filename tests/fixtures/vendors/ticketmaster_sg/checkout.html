@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for the ticketmaster.sg checkout page at
+ /ticket/checkout/<gameCode>/<dateId>/<areaNo>/<qty>.
+
+ PROVENANCE (same as cart.html):
+ The live page was NOT captured first-hand during F7.4 — see the
+ banner-comment in cart.html and the F7.4 handoff for the exhaustive
+ reason. Every element here is grounded in the F7.1 recon corpus:
+
+   * SG payment methods (PayNow, GrabPay, Visa/MC/Amex, Apple Pay):
+     documented verbatim in docs/recon/ticketmaster_sg.md
+     "Regional differences vs ticketmaster.com" and
+     "Payment methods (regional)".
+   * SG delivery options (mobile entry / e-ticket / venue collection):
+     documented in the F7.4 brief and the SG Help Centre FAQ. The exact
+     wording is the conservative phrasing observed in the recon doc; if
+     the live site later disagrees, F7.6's headed run will dump this
+     file in place.
+   * SGD price format ('$144.00', 'S$8.00', 'SGD 288.00') and the
+     Yii/Bootstrap stack ids/classes mirror what we DID see live on
+     03_seat_selection.html and 04_captcha.html.
+   * card-mask format ('Visa ending in 4242', 'Visa **** 4242') is
+     the conservative SG card-listing format inferred from the SG
+     site's general Yii/Bootstrap pattern; F7.6 may amend the exact
+     wording once a logged-in checkout DOM is captured live.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Checkout | Ticketmaster SG</title>
+  </head>
+  <body data-page="checkout">
+    <main id="content">
+      <section id="sec-checkout" class="container">
+        <h1>Checkout</h1>
+
+        <div id="orderSummary" class="order-summary alert alert-info">
+          <h2>Order Summary</h2>
+          <ul>
+            <li>Event <strong>PGL CS 2 Major Singapore 2026</strong></li>
+            <li>Section <strong>GENADM</strong></li>
+            <li>Quantity <strong>2 tickets</strong></li>
+            <li>Subtotal <strong>$288.00</strong></li>
+            <li>Booking Fee <strong>S$8.00</strong></li>
+            <li>
+              Total
+              <strong
+                id="checkoutOrderTotal"
+                class="cart-total"
+                data-currency="SGD"
+                >$296.00</strong
+              >
+            </li>
+          </ul>
+        </div>
+
+        <form
+          id="form-ticket-checkout"
+          action="/ticket/checkout/26sg_pglcs2major/3239/1/2"
+          method="post"
+        >
+          <input
+            type="hidden"
+            name="_csrf"
+            value="checkout-csrf-placeholder-from-fixture"
+          />
+
+          <!-- Delivery options -->
+          <fieldset id="deliveryFieldset" class="checkout-section">
+            <legend>Delivery</legend>
+            <div class="form-check delivery-option">
+              <input
+                type="radio"
+                class="form-check-input delivery-radio"
+                id="delivery_mobile"
+                name="CheckoutForm[deliveryMethod]"
+                value="mobile_entry"
+              />
+              <label class="form-check-label" for="delivery_mobile">
+                Mobile Entry
+              </label>
+              <small class="form-text text-muted">
+                Present your ticket from the Ticketmaster app at the venue
+                gate.
+              </small>
+            </div>
+
+            <div class="form-check delivery-option">
+              <input
+                type="radio"
+                class="form-check-input delivery-radio"
+                id="delivery_eticket"
+                name="CheckoutForm[deliveryMethod]"
+                value="eticket"
+              />
+              <label class="form-check-label" for="delivery_eticket">
+                E-Ticket
+              </label>
+              <small class="form-text text-muted">
+                Receive a PDF e-ticket by email and print at home.
+              </small>
+            </div>
+
+            <div class="form-check delivery-option">
+              <input
+                type="radio"
+                class="form-check-input delivery-radio"
+                id="delivery_venue"
+                name="CheckoutForm[deliveryMethod]"
+                value="venue_collection"
+              />
+              <label class="form-check-label" for="delivery_venue">
+                Venue Collection
+              </label>
+              <small class="form-text text-muted">
+                Pick up tickets at the venue box office on the event day with
+                the credit card used for purchase.
+              </small>
+            </div>
+          </fieldset>
+
+          <!-- Payment methods (saved cards + SG-specific wallets) -->
+          <fieldset id="paymentFieldset" class="checkout-section">
+            <legend>Payment</legend>
+
+            <div class="form-check payment-option saved-card">
+              <input
+                type="radio"
+                class="form-check-input payment-radio saved-card-radio"
+                id="payment_saved_4242"
+                name="CheckoutForm[paymentMethod]"
+                value="saved_card:4242"
+                data-last-four="4242"
+              />
+              <label class="form-check-label" for="payment_saved_4242">
+                Visa ending in 4242
+              </label>
+            </div>
+
+            <div class="form-check payment-option saved-card">
+              <input
+                type="radio"
+                class="form-check-input payment-radio saved-card-radio"
+                id="payment_saved_1111"
+                name="CheckoutForm[paymentMethod]"
+                value="saved_card:1111"
+                data-last-four="1111"
+              />
+              <label class="form-check-label" for="payment_saved_1111">
+                Mastercard **** 1111
+              </label>
+            </div>
+
+            <div class="form-check payment-option">
+              <input
+                type="radio"
+                class="form-check-input payment-radio"
+                id="payment_paynow"
+                name="CheckoutForm[paymentMethod]"
+                value="paynow"
+              />
+              <label class="form-check-label" for="payment_paynow">
+                PayNow
+              </label>
+            </div>
+
+            <div class="form-check payment-option">
+              <input
+                type="radio"
+                class="form-check-input payment-radio"
+                id="payment_grabpay"
+                name="CheckoutForm[paymentMethod]"
+                value="grabpay"
+              />
+              <label class="form-check-label" for="payment_grabpay">
+                GrabPay
+              </label>
+            </div>
+
+            <div class="form-check payment-option">
+              <input
+                type="radio"
+                class="form-check-input payment-radio"
+                id="payment_apple_pay"
+                name="CheckoutForm[paymentMethod]"
+                value="apple_pay"
+              />
+              <label class="form-check-label" for="payment_apple_pay">
+                Apple Pay
+              </label>
+            </div>
+
+            <div class="form-check payment-option">
+              <input
+                type="radio"
+                class="form-check-input payment-radio"
+                id="payment_new_card"
+                name="CheckoutForm[paymentMethod]"
+                value="new_card"
+              />
+              <label class="form-check-label" for="payment_new_card">
+                Use a new credit / debit card
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Terms (re-shown by SG site at the final review step) -->
+          <fieldset id="termsFieldset" class="checkout-section">
+            <div class="form-check">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="TicketForm_agree"
+                name="CheckoutForm[agree]"
+                value="1"
+              />
+              <label class="form-check-label" for="TicketForm_agree">
+                I agree to the
+                <a href="/terms" target="_blank">Conditions of Purchase</a>
+                and the Conditions of Entry.
+              </label>
+            </div>
+
+            <div class="form-check mgt-6">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="CheckoutForm_marketingOptIn"
+                name="CheckoutForm[marketingOptIn]"
+                value="1"
+              />
+              <label
+                class="form-check-label"
+                for="CheckoutForm_marketingOptIn"
+              >
+                Subscribe to Ticketmaster Singapore newsletters and
+                promotional offers.
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="text-center mgt-16">
+            <button
+              type="button"
+              id="reviewButton"
+              class="btn btn-secondary"
+            >
+              Review Order
+            </button>
+            <button
+              type="submit"
+              id="placeOrderButton"
+              class="btn btn-primary btn-lg"
+            >
+              Place Order
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

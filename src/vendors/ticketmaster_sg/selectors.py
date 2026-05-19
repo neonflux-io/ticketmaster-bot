@@ -94,6 +94,42 @@ def selector_for(name: str) -> str:
     return ", ".join(_sg_registry.get(name))
 
 
+def _css_escape_attr_value(value: str) -> str:
+    """Escape ``"`` and ``\\`` so ``value`` is safe inside a CSS attribute selector."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def selector_for_template(name: str, /, **values: str) -> str:
+    """Return the comma-joined selector string for ``name`` with ``values`` interpolated.
+
+    Each SG-registry fallback is treated as a ``str.format``-style
+    template and filled in via ``str.format_map`` after CSS-escaping
+    the values. Used for selectors that need user-supplied data
+    (e.g. a keyword in a ``:has-text`` pseudo-class, or a card last-four
+    in a label match). Keeps the raw templates in YAML so the
+    inline-selector grep gate stays at zero matches.
+    """
+    escaped = {key: _css_escape_attr_value(value) for key, value in values.items()}
+    parts: list[str] = []
+    for template in _sg_registry.get(name):
+        try:
+            parts.append(template.format_map(escaped))
+        except KeyError as exc:
+            raise KeyError(
+                f"SG selector template {name!r} fallback {template!r} requires placeholder "
+                f"{exc.args[0]!r} which was not supplied"
+            ) from exc
+    return ", ".join(parts)
+
+
+def locator_template(scope: Page | FrameLocator, name: str, /, **values: str) -> Locator:
+    """Resolve a parametric SG selector and return ``locator.first``.
+
+    See :func:`selector_for_template` for the placeholder semantics.
+    """
+    return scope.locator(selector_for_template(name, **values)).first
+
+
 def try_selector_for(name: str) -> str | None:
     """Like :func:`selector_for` but returns ``None`` instead of raising."""
     try:
@@ -116,6 +152,8 @@ __all__ = [
     "get",
     "locator",
     "locator_multi",
+    "locator_template",
     "selector_for",
+    "selector_for_template",
     "try_selector_for",
 ]
