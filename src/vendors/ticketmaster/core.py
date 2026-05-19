@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 from playwright.async_api import async_playwright
 
+from ...hooks.base import HookRegistry
 from ...humanize.profile import apply_profile
+from ...orchestrator.lifecycle import LifecycleDispatcher
 from ...proxy.manager import ProxyManager
 from ...strategies.factory import build_strategy
 from ...utils.notifier import notify
@@ -41,12 +43,54 @@ class BotRunner:
         # than after we've spawned a Chromium child. ``ProxyManager``
         # construction validates URLs and the policy name.
         self.proxy_manager = ProxyManager(config.proxy)
+        # Each runner owns its own hook registry + lifecycle dispatcher
+        # so multi-account / parallel runs never share hook state.
+        # Hooks are registered by the caller (CLI bootstrap, tests,
+        # the multiplex bridge) before ``run()`` is awaited.
+        self.hooks: HookRegistry = HookRegistry()
+        self.lifecycle: LifecycleDispatcher = LifecycleDispatcher(self.hooks)
 
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
 
     async def run(self) -> bool:
         """Run the bot end-to-end. Returns True on success."""
+        await self.lifecycle.fire(
+            "on_run_start",
+            self,
+            account=self.account.name if self.account else None,
+        )
+        success = False
+        try:
+            success = await self._run()
+            if not success:
+                # Soft failure (graceful False return). Let observers
+                # react before the run-end event fires.
+                await self.lifecycle.fire(
+                    "on_failure",
+                    self,
+                    error=None,
+                    account=self.account.name if self.account else None,
+                )
+            return success
+        except Exception as exc:
+            await self.lifecycle.fire(
+                "on_failure",
+                self,
+                error=exc,
+                account=self.account.name if self.account else None,
+            )
+            raise
+        finally:
+            await self.lifecycle.fire(
+                "on_run_end",
+                self,
+                success=success,
+                account=self.account.name if self.account else None,
+            )
+
+    async def _run(self) -> bool:
+        """Internal driver. The public :meth:`run` wraps this in lifecycle fires."""
         cfg = self.config
         user_data_dir = Path(cfg.browser.user_data_dir)
         if self.account:
@@ -159,11 +203,17 @@ class BotRunner:
                     if humanize_cfg.enabled and humanize_cfg.typing.enabled
                     else None
                 )
+                await self.lifecycle.fire(
+                    "before_login", self, account=self.account.name
+                )
                 await auth.login(
                     context,
                     self.account,
                     action_delay=(self.action_delay_min, self.action_delay_max),
                     typing_cfg=typing_cfg,
+                )
+                await self.lifecycle.fire(
+                    "after_login", self, account=self.account.name
                 )
             else:
                 log.info("Existing session detected for %s", self.account.name)
@@ -176,6 +226,7 @@ class BotRunner:
         page = await context.new_page()
 
         # 2. Navigate to event page
+        await self.lifecycle.fire("before_navigate", self, url=cfg.event.url)
         await navigator.open_event(
             page, cfg.event.url, timeout_seconds=cfg.timing.page_timeout_seconds
         )
@@ -201,6 +252,13 @@ class BotRunner:
             )
             state = await navigator.detect_state(page)
             log.info("Post-queue page state: %s", state)
+            await self.lifecycle.fire("after_queue_release", self, state=state)
+        else:
+            # Fire ``after_queue_release`` even when no queue was present
+            # so hooks that key off "the runner has reached the
+            # tickets/sold_out/not_on_sale page" have a single
+            # observation point.
+            await self.lifecycle.fire("after_queue_release", self, state=state)
 
         if state == "sold_out":
             log.error("Event is sold out - nothing to do")
@@ -224,7 +282,9 @@ class BotRunner:
         # 5. Select tickets
         strategy = build_strategy(cfg.tickets)
         await self._delay()
+        await self.lifecycle.fire("before_select", self, strategy=cfg.tickets.strategy)
         chosen = await strategy.pick(page)
+        await self.lifecycle.fire("after_select", self, candidate=chosen)
         if chosen is None:
             log.error("Strategy did not find a suitable ticket")
             notify(
@@ -240,11 +300,13 @@ class BotRunner:
         await cart.set_quantity(page, cfg.tickets.quantity)
         await self._delay()
 
+        await self.lifecycle.fire("before_cart", self, candidate=chosen)
         added = await cart.add_to_cart(
             page,
             action_delay=(self.action_delay_min, self.action_delay_max),
             timeout_seconds=cfg.timing.page_timeout_seconds,
         )
+        await self.lifecycle.fire("after_cart", self, candidate=chosen, added=added)
         if not added:
             log.error("Failed to add tickets to cart")
             notify(
@@ -263,6 +325,11 @@ class BotRunner:
         )
 
         # 7. Checkout
+        await self.lifecycle.fire("before_checkout", self, candidate=chosen)
+        if cfg.checkout.auto_purchase:
+            await self.lifecycle.fire(
+                "before_place_order", self, candidate=chosen
+            )
         success = await checkout.run_checkout(
             page,
             auto_purchase=cfg.checkout.auto_purchase,
