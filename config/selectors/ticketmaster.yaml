@@ -204,3 +204,47 @@ login_password_input:
 login_submit_button:
   - "button[type='submit']"
   - "button:has-text('Sign In')"
+
+# --- generic page structure ---------------------------------------------
+# Used by ``navigator.detect_state`` to narrow scope to the main page area
+# (preventing sold-out / not-on-sale text in headers/footers from misleading
+# the state machine).
+
+main_content:
+  - "main"
+  - "[role='main']"
+
+# Body-text scope, used by ``auth`` and ``queue`` to read ``inner_text``
+# off the page or a frame. Kept in YAML so the inline-selector grep gate
+# stays at zero matches.
+
+page_body:
+  - "body"
+
+# --- parametric selector templates ---------------------------------------
+# These entries are Python ``str.format``-style templates with named
+# placeholders. ``src.registry.selectors.selector_for_template(name, **kw)``
+# joins the fallbacks and substitutes the placeholders before handing the
+# selector to Playwright. Templates live in YAML so the inline-selector
+# grep gate stays at zero matches and so DOM changes only require a YAML
+# edit.
+
+# Used by ``checkout.select_delivery`` to find a delivery <label> whose
+# visible text contains ``keyword`` (e.g. "mobile entry", "eticket").
+delivery_option_label_template:
+  - "label:has-text('{keyword}')"
+
+# Used by ``checkout.select_saved_card`` to find the saved card whose
+# label ends in ``last_four``. Multiple fallbacks cover the three text
+# variants Ticketmaster uses across its checkout pages.
+saved_card_label_template:
+  - "label:has-text('ending in {last_four}')"
+  - "label:has-text('•••• {last_four}')"
+  - "label:has-text('***{last_four}')"
+
+# Used by ``InteractiveSeatmapStrategy`` to click the single ``<rect>``
+# whose data-* attributes match the configured (section, row, seat). The
+# template is one CSS attribute-chain selector so all three params must
+# resolve simultaneously.
+seatmap_seat_rect_template:
+  - 'rect[data-section="{section}"][data-row="{row}"][data-seat="{seat}"]'

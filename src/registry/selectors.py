@@ -65,6 +65,39 @@ def selector_for(name: str) -> str:
     return ", ".join(registry.get(name))
 
 
+def selector_for_template(name: str, /, **values: str) -> str:
+    """Return the comma-joined selector string for ``name`` with ``values`` interpolated.
+
+    Each registry fallback is treated as a Python ``str.format``-style
+    template and filled in via ``str.format_map``. Used for selectors
+    that need user-supplied data (e.g. a keyword in a ``:has-text``
+    pseudo-class, or seat-map coordinates encoded as CSS attribute
+    selector values). The substitution layer keeps the raw selector
+    strings in YAML so the inline-selector grep gate stays at zero
+    matches.
+
+    Values are CSS-escaped (``"`` → ``\\"``, ``\\`` → ``\\\\``) before
+    interpolation so the resulting selector remains well-formed even
+    when the caller passes user input containing those characters.
+    """
+    escaped = {key: _css_escape_attr_value(value) for key, value in values.items()}
+    parts: list[str] = []
+    for template in registry.get(name):
+        try:
+            parts.append(template.format_map(escaped))
+        except KeyError as exc:
+            raise KeyError(
+                f"selector template {name!r} fallback {template!r} requires placeholder "
+                f"{exc.args[0]!r} which was not supplied"
+            ) from exc
+    return ", ".join(parts)
+
+
+def _css_escape_attr_value(value: str) -> str:
+    """Escape ``"`` and ``\\`` so ``value`` is safe inside a CSS attribute selector."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def locator(scope: Page | FrameLocator, name: str) -> Locator:
     """Resolve ``name`` against ``scope`` and return ``locator.first``.
 
@@ -78,6 +111,14 @@ def locator(scope: Page | FrameLocator, name: str) -> Locator:
 def locator_multi(scope: Page | FrameLocator, name: str) -> Locator:
     """Like :func:`locator` but does not narrow to ``.first``."""
     return scope.locator(selector_for(name))
+
+
+def locator_template(scope: Page | FrameLocator, name: str, /, **values: str) -> Locator:
+    """Resolve a parametric selector and return ``locator.first``.
+
+    See :func:`selector_for_template` for the placeholder semantics.
+    """
+    return scope.locator(selector_for_template(name, **values)).first
 
 
 def _load_yaml(path: Path) -> dict[str, list[str]]:
@@ -133,7 +174,9 @@ __all__ = [
     "get",
     "locator",
     "locator_multi",
+    "locator_template",
     "register",
     "registry",
     "selector_for",
+    "selector_for_template",
 ]

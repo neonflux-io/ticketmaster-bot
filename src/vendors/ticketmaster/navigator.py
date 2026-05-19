@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from ...registry import selectors as selector_registry
-from ...registry.selectors import selector_for
+from ...registry.selectors import locator, selector_for
 from ...utils.retry import random_human_delay
 
 if TYPE_CHECKING:
@@ -87,9 +87,8 @@ async def wait_until_on_sale(
 async def _tickets_available(page: Page) -> bool:
     """Heuristic: tickets are on sale if quick-picks or ticket list is visible."""
     try:
-        for selector in selector_registry.get("tickets_available_markers"):
-            if await page.locator(selector).first.is_visible(timeout=500):
-                return True
+        if await locator(page, "tickets_available_markers").is_visible(timeout=500):
+            return True
     except Exception:  # noqa: BLE001
         return False
     return False
@@ -108,14 +107,14 @@ async def detect_state(page: Page) -> str:
         if frame.url and ("queue" in frame.url.lower() or "waitingroom" in frame.url.lower()):
             return "queue"
 
-    main = page.locator("main, [role='main']").first
+    main = locator(page, "main_content")
     try:
         if await main.count() == 0:
             scope = page
         else:
             scope = main  # type: ignore[assignment]
     except Exception:  # noqa: BLE001
-        scope = page  # type: ignore[assignment]
+        scope = page
 
     for sel in selector_registry.get("sold_out_marker"):
         try:

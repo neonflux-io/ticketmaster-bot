@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...registry import selectors as selector_registry
-from ...registry.selectors import locator
+from ...registry.selectors import locator, locator_template, selector_for_template
 from ...strategies.base import _extract_price, _extract_sections
 from ...utils.retry import random_human_delay
 from . import auth as auth_module
@@ -33,9 +33,7 @@ async def select_delivery(
     # 1. Try matching by visible label text.
     for keyword in preferred:
         try:
-            label = page.locator(
-                f"label:has-text('{keyword}')",
-            ).first
+            label = locator_template(page, "delivery_option_label_template", keyword=keyword)
             if await label.is_visible(timeout=800):
                 await label.click()
                 log.info("Selected delivery option matching %r", keyword)
@@ -74,11 +72,8 @@ async def select_saved_card(page: Page, last_four: str | None) -> bool:
     if not last_four:
         return False
     try:
-        radio = page.locator(
-            f"label:has-text('ending in {last_four}'), "
-            f"label:has-text('•••• {last_four}'), "
-            f"label:has-text('***{last_four}')"
-        ).first
+        combined = selector_for_template("saved_card_label_template", last_four=last_four)
+        radio = page.locator(combined).first
         if await radio.is_visible(timeout=2000):
             await radio.click()
             log.info("Selected saved card ending in %s", last_four)

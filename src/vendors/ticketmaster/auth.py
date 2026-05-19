@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from ...registry import selectors as selector_registry
+from ...registry.selectors import locator
 from ...utils.retry import random_human_delay
 
 if TYPE_CHECKING:
@@ -17,11 +19,6 @@ log = logging.getLogger("ticketmaster-bot")
 
 LOGIN_URL = "https://auth.ticketmaster.com/as/authorization.oauth2"
 ACCOUNT_URL = "https://www.ticketmaster.com/member"
-AUTH_FRAME_SELECTORS = (
-    "iframe[src*='identity.ticketmaster.com']",
-    "iframe[src*='auth.ticketmaster.com']",
-    "iframe[title*='login' i]",
-)
 TM_AUTH_COOKIE_NAMES = {"SID", "BID-tm", "eps_sid", "MUID", "azk-track"}
 
 
@@ -65,7 +62,7 @@ async def _looks_like_challenge_page(page: Page) -> bool:
     ):
         return True
     try:
-        body_text = await page.locator("body").inner_text(timeout=1000)
+        body_text = await locator(page, "page_body").inner_text(timeout=1000)
     except Exception:  # noqa: BLE001
         return False
     lowered_body = (body_text or "").lower()
@@ -113,9 +110,7 @@ async def is_logged_in(context: BrowserContext) -> bool:
             return False
 
         try:
-            sign_in_visible = await page.locator(
-                "a:has-text('Sign In'), button:has-text('Sign In')"
-            ).first.is_visible(timeout=2000)
+            sign_in_visible = await locator(page, "sign_in_button").is_visible(timeout=2000)
         except Exception:  # noqa: BLE001
             sign_in_visible = False
         return not sign_in_visible
@@ -131,11 +126,11 @@ async def is_logged_in(context: BrowserContext) -> bool:
 
 async def _resolve_auth_scope(page: Page) -> Page | FrameLocator:
     """Return either the page or a FrameLocator if TM is showing an auth iframe."""
-    for sel in AUTH_FRAME_SELECTORS:
+    for sel in selector_registry.get("auth_frame"):
         try:
             frame_locator = page.frame_locator(sel)
             # Probe whether the frame contains anything we recognize.
-            probe = frame_locator.locator("input[name='email'], input#email").first
+            probe = locator(frame_locator, "login_email_input")
             try:
                 if await probe.is_visible(timeout=2000):
                     return frame_locator
@@ -163,7 +158,7 @@ async def login(
         await random_human_delay(*action_delay)
 
         try:
-            sign_in_btn = page.locator("a:has-text('Sign In'), button:has-text('Sign In')").first
+            sign_in_btn = locator(page, "sign_in_button")
             if await sign_in_btn.is_visible(timeout=2500):
                 await sign_in_btn.click()
                 await random_human_delay(*action_delay)
@@ -171,18 +166,18 @@ async def login(
             pass
 
         scope = await _resolve_auth_scope(page)
-        email_locator = scope.locator("input[name='email'], input#email").first
+        email_locator = locator(scope, "login_email_input")
         await email_locator.wait_for(state="visible", timeout=20000)
 
         log.info("Filling credentials for %s", account.name)
         await email_locator.fill(account.email)
         await random_human_delay(*action_delay)
 
-        password_locator = scope.locator("input[name='password'], input#password").first
+        password_locator = locator(scope, "login_password_input")
         await password_locator.fill(account.password)
         await random_human_delay(*action_delay)
 
-        submit = scope.locator("button[type='submit'], button:has-text('Sign In')").first
+        submit = locator(scope, "login_submit_button")
         await submit.click()
 
         await _wait_for_login_complete(page)

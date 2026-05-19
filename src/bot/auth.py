@@ -5,7 +5,6 @@ from __future__ import annotations
 from src.vendors.ticketmaster.auth import *  # noqa: F401,F403
 from src.vendors.ticketmaster.auth import (  # noqa: F401
     ACCOUNT_URL,
-    AUTH_FRAME_SELECTORS,
     LOGIN_URL,
     TM_AUTH_COOKIE_NAMES,
     AuthError,

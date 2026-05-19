@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from ...registry import selectors as selector_registry
+from ...registry.selectors import locator, selector_for
 
 if TYPE_CHECKING:
     from playwright.async_api import Page
@@ -27,7 +27,7 @@ async def in_queue(page: Page) -> bool:
         if frame.url and ("queue" in frame.url.lower() or "waitingroom" in frame.url.lower()):
             return True
     try:
-        body = await page.locator("body").inner_text(timeout=2000)
+        body = await locator(page, "page_body").inner_text(timeout=2000)
         lowered = body.lower()
         if (
             "waiting room" in lowered
@@ -74,21 +74,20 @@ async def wait_through_queue(
 
 async def _try_read_queue_position(page: Page) -> str | None:
     """Best-effort attempt to read queue position text."""
-    selectors = selector_registry.get("queue_position")
-    for sel in selectors:
-        try:
-            loc = page.locator(sel).first
-            if await loc.is_visible(timeout=500):
-                text = await loc.inner_text(timeout=500)
-                if text:
-                    return text.strip()[:200]
-        except Exception:  # noqa: BLE001
-            continue
+    try:
+        loc = locator(page, "queue_position")
+        if await loc.is_visible(timeout=500):
+            text = await loc.inner_text(timeout=500)
+            if text:
+                return text.strip()[:200]
+    except Exception:  # noqa: BLE001
+        pass
+    body_selector = selector_for("page_body")
     for frame in page.frames:
         if "queue" not in (frame.url or "").lower():
             continue
         try:
-            body = await frame.locator("body").inner_text(timeout=1000)
+            body = await frame.locator(body_selector).inner_text(timeout=1000)
             for line in body.splitlines():
                 low = line.lower()
                 if "position" in low or "ahead of you" in low or "place in line" in low:

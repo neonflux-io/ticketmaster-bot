@@ -22,6 +22,7 @@ from src.registry.selectors import (
     locator,
     locator_multi,
     selector_for,
+    selector_for_template,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -133,6 +134,47 @@ def test_selector_for_joins_with_comma_space() -> None:
 def test_selector_for_unknown_name_raises() -> None:
     with pytest.raises(NotRegistered):
         selector_for("does_not_exist_anywhere_at_all")
+
+
+# ---------------------------------------------------------------------------
+# Parametric template helper (added in F2.6 to absorb the last remaining
+# inline f-string selectors in src/vendors/ticketmaster/checkout.py and
+# src/strategies/interactive_seatmap.py).
+# ---------------------------------------------------------------------------
+
+
+def test_selector_for_template_substitutes_named_placeholders() -> None:
+    """A template registry entry is interpolated with named values."""
+    out = selector_for_template(
+        "delivery_option_label_template", keyword="mobile entry"
+    )
+    assert out == "label:has-text('mobile entry')"
+
+
+def test_selector_for_template_joins_multiple_fallbacks_with_comma_space() -> None:
+    out = selector_for_template("saved_card_label_template", last_four="1234")
+    # Three fallbacks live in the YAML, all containing the substituted value.
+    assert out == (
+        "label:has-text('ending in 1234'), "
+        "label:has-text('•••• 1234'), "
+        "label:has-text('***1234')"
+    )
+
+
+def test_selector_for_template_escapes_quote_in_value() -> None:
+    """A ``"`` in the value must be CSS-escaped so the selector stays well-formed."""
+    out = selector_for_template(
+        "seatmap_seat_rect_template", section='A"B', row="A", seat="1"
+    )
+    # The double-quote in section must come through escaped (``A\"B``);
+    # the surrounding quote characters from the template stay intact.
+    assert 'data-section="A\\"B"' in out
+
+
+def test_selector_for_template_missing_placeholder_raises_keyerror() -> None:
+    with pytest.raises(KeyError):
+        selector_for_template("seatmap_seat_rect_template", section="100", row="A")
+        # ``seat`` deliberately omitted — must raise KeyError naming the placeholder.
 
 
 def test_validation_contract_callable_subprocess() -> None:

@@ -23,6 +23,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ..registry.selectors import get as get_selectors
+from ..registry.selectors import selector_for_template
 from .base import SelectionStrategy, TicketCandidate
 
 if TYPE_CHECKING:
@@ -101,20 +102,19 @@ class InteractiveSeatmapStrategy(SelectionStrategy):
 def _rect_selector(section: str, row: str, seat: str) -> str:
     """Return the CSS selector for the seat-map ``<rect>`` carrying these attrs.
 
-    Kept private so the data-attribute contract stays in one place. The
-    strategy never compares the resulting selector to a YAML entry —
-    seat coordinates are user input, not a registry lookup.
+    The selector template lives in ``config/selectors/ticketmaster.yaml``
+    under ``seatmap_seat_rect_template``; this thin wrapper just interpolates
+    the user-supplied (section, row, seat) values through
+    :func:`src.registry.selectors.selector_for_template`, which CSS-escapes
+    each value before substitution so quotes and backslashes in seat
+    labels can't break the selector.
     """
-    return (
-        f'rect[data-section="{_css_escape_attr_value(section)}"]'
-        f'[data-row="{_css_escape_attr_value(row)}"]'
-        f'[data-seat="{_css_escape_attr_value(seat)}"]'
+    return selector_for_template(
+        "seatmap_seat_rect_template",
+        section=section,
+        row=row,
+        seat=seat,
     )
-
-
-def _css_escape_attr_value(value: str) -> str:
-    """Escape ``"`` and ``\\`` so the value can sit inside a CSS attribute selector."""
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 async def _rect_present(rect: Locator) -> bool:

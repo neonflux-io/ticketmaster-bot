@@ -40,6 +40,24 @@
     </ul>
 
     <section data-bdd="order-summary">Subtotal $0.00</section>
+
+    <!--
+      The quantity selector and add-to-cart button are present so the
+      F2.6 [dom.selector-registry-resolves] assertion can prove the
+      registry resolves the names ``quantity_select`` and
+      ``add_to_cart_button`` against a realistic event-page fixture.
+      Real Ticketmaster pages render these widgets next to the
+      quick-picks list; we keep them in the same fixture so existing
+      strategy tests that load ``quick_picks_basic.html`` are unaffected
+      (the click recorder above only fires on rows).
+    -->
+    <select data-bdd="quantity-select" name="quantity" aria-label="Ticket quantity">
+      <option value="1">1</option>
+      <option value="2" selected>2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+    </select>
+    <button type="button" data-bdd="checkout-button">Add to Cart</button>
   </main>
 
   <script>
