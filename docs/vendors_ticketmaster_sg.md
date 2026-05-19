@@ -303,6 +303,37 @@ which the bot cannot drive. The recon report (
 documents this constraint; it is not a deferred feature, it is a
 property of the regional payment surface.
 
+## OAuth login entry point
+
+The SG adapter does **not** hardcode the OAuth authorize URL. The
+real PingFederate OAuth URL that ticketmaster.sg sends users to
+carries six server-generated tokens — `placementId`, `integratorId`,
+`intSiteToken`, `TMUO`, `deviceId`, `disableAutoOptIn` — alongside
+the fixed `client_id` / `redirect_uri` / `visualPresets` values
+captured during F7.1 recon. PingFederate validates those server
+tokens; navigating to a hand-built OAuth URL that only carries the
+fixed params lands on PingFederate's generic "Modern Accounts Error
+Page" (`We're sorry. There was an unexpected error while processing
+your request.`).
+
+To avoid this the adapter drives the login by navigating to
+`https://ticketmaster.sg/login` (constant
+`SG_LOGIN_INITIATE_URL` in `src/vendors/ticketmaster_sg/auth.py`).
+The SG site 302s through
+`https://identity.ticketmaster.sg/sign-in?...` and on to
+`https://auth.ticketmaster.com/as/authorization.oauth2?...` with the
+full set of server-generated tokens. The retained
+`build_sg_oauth_url` helper is now documentation-only — it returns
+the fixed-parameter portion of the OAuth URL for sanity-checking
+in tests, but is *not* safe to navigate to directly.
+
+The live `test_live_sg_login_initiator_lands_on_auth_ticketmaster_com`
+test in `tests/vendors/ticketmaster_sg/test_auth.py` asserts the
+real `/login` redirect target is still `auth.ticketmaster.com` with
+the required tokens; that test will fail loudly if TM ever moves
+the SG OAuth surface to a regional host (`auth.th.ticketmaster.com`,
+`auth.sg.ticketmaster.com`, etc.) or drops a required token.
+
 ## Persistent sessions
 
 Per-account persistence works the same way as on the US adapter

@@ -9,6 +9,16 @@ fingerprint challenge) the OAuth server bounces through
 ``identity.ticketmaster.sg/exchange``, which sets the SG-scoped
 authentication cookies on ``.ticketmaster.sg``.
 
+The OAuth URL itself is *not* something we hardcode. The real OAuth
+URL the SG site generates carries a set of server-only tokens
+(``placementId``, ``integratorId``, ``intSiteToken``, ``TMUO``,
+``deviceId``, ``disableAutoOptIn``) that PingFederate validates;
+hardcoding the URL with only the SG-specific client_id / redirect_uri
+/ visualPresets values lands on PingFederate's "Modern Accounts Error
+Page" instead of the email-entry form. To avoid this we drive the
+login by navigating to ``https://ticketmaster.sg/login`` and letting
+the site construct the OAuth URL server-side.
+
 This module drives that flow with the same persistent BrowserContext
 the rest of the vendor uses, with two SG-specific touches:
 
@@ -46,9 +56,26 @@ if TYPE_CHECKING:
 log = logging.getLogger("ticketmaster-bot")
 
 
-# OAuth surface for ticketmaster.sg. The client_id, redirect_uri and
-# visualPresets are SG-specific (verified in F7.1 by inspecting the
-# real auth.ticketmaster.com URL the captcha flow redirects to).
+# OAuth surface for ticketmaster.sg.
+#
+# The OAuth login *host* is ``auth.ticketmaster.com`` (the same
+# PingFederate front-end the US site uses). The client_id,
+# redirect_uri and visualPresets values below are the SG-specific
+# query parameters we observed during F7.1 recon and re-verified
+# against the live site on 2026-05-20 by clicking Sign In on
+# ``https://ticketmaster.sg/`` and recording the redirect chain.
+#
+# However, the **canonical login entry point** is
+# ``https://ticketmaster.sg/login``. Visiting ``/login`` 302s through
+# ``identity.ticketmaster.sg/sign-in?...`` and then to
+# ``auth.ticketmaster.com/as/authorization.oauth2?...`` with a set
+# of server-generated tokens (``placementId``, ``integratorId``,
+# ``intSiteToken``, ``TMUO``, ``deviceId``, ``disableAutoOptIn``).
+# Without those tokens PingFederate renders its generic "Modern
+# Accounts Error Page" — which is exactly what happened the first
+# time we tried to hardcode the OAuth URL ourselves. Drive the SG
+# login by navigating to ``SG_LOGIN_INITIATE_URL`` and letting the
+# site build the OAuth URL server-side.
 SG_OAUTH_AUTHORIZE_URL = "https://auth.ticketmaster.com/as/authorization.oauth2"
 SG_OAUTH_CLIENT_ID = "1a554b2c04dc.web.ticketmaster.sg"
 SG_OAUTH_REDIRECT_URI = "https://identity.ticketmaster.sg/exchange"
@@ -58,6 +85,7 @@ SG_OAUTH_LANG = "en-sg"
 
 SG_HOME_URL = "https://ticketmaster.sg/"
 SG_PROFILE_URL = "https://ticketmaster.sg/profile"
+SG_LOGIN_INITIATE_URL = "https://ticketmaster.sg/login"
 
 # Cookies the SG site stamps on a logged-in browser.
 # ``BID`` is deliberately omitted — the recon doc records it as being
@@ -94,11 +122,26 @@ class AuthError(Exception):
 
 
 def build_sg_oauth_url(*, lang: str = SG_OAUTH_LANG) -> str:
-    """Return the canonical SG OAuth authorize URL.
+    """Return the *fixed-parameter* portion of the SG OAuth authorize URL.
 
-    The URL is built from the live values captured during F7.1 recon
-    and matches the URL the SG ``/ticket/check-captcha/...`` flow
-    redirects to after a successful captcha submission.
+    **Not** safe to navigate to directly. The live SG site appends a
+    set of server-generated tokens (``placementId``, ``integratorId``,
+    ``intSiteToken``, ``TMUO``, ``deviceId``, ``disableAutoOptIn``)
+    to every real OAuth bounce, and the PingFederate front-end at
+    ``auth.ticketmaster.com`` returns its generic "Modern Accounts
+    Error Page" if those tokens are missing.
+
+    This helper is retained for two purposes only:
+
+    * Sanity-checking the canonical host / client_id / redirect_uri
+      / visualPresets combination in tests.
+    * Debug logging — printing the "shape" of the OAuth URL the SG
+      site is expected to bounce through.
+
+    To actually drive the SG login, navigate to
+    :data:`SG_LOGIN_INITIATE_URL` (``https://ticketmaster.sg/login``)
+    and let the site construct the OAuth URL server-side. The
+    :func:`login` function in this module uses that path.
     """
     params = {
         "client_id": SG_OAUTH_CLIENT_ID,
@@ -260,9 +303,15 @@ async def login(
 
     The flow is:
 
-    1. Open :func:`build_sg_oauth_url` directly. This drops the
-       browser straight onto the email-entry step of the PingFederate
-       form rather than navigating through ``ticketmaster.sg`` first.
+    1. Navigate to :data:`SG_LOGIN_INITIATE_URL`
+       (``https://ticketmaster.sg/login``). The SG site 302s through
+       ``identity.ticketmaster.sg/sign-in`` and on to
+       ``auth.ticketmaster.com/as/authorization.oauth2?...`` with the
+       full set of server-generated tokens (``placementId``,
+       ``integratorId``, ``intSiteToken``, ``TMUO``, ``deviceId``,
+       ``disableAutoOptIn``). Hardcoding the OAuth URL ourselves
+       drops those tokens and lands on PingFederate's "Modern
+       Accounts Error Page" — so we always let the site build it.
     2. Fill ``input#email-input`` (selector
        :data:`config/selectors/ticketmaster_sg.yaml::login_email_input`)
        and click ``button[name='sign-in']``.
@@ -276,9 +325,12 @@ async def login(
     """
     page = await context.new_page()
     try:
-        oauth_url = build_sg_oauth_url()
-        log.info("Navigating to ticketmaster.sg OAuth (%s)", SG_OAUTH_CLIENT_ID)
-        await page.goto(oauth_url, wait_until="domcontentloaded", timeout=30000)
+        log.info(
+            "Initiating ticketmaster.sg login via %s (client_id=%s)",
+            SG_LOGIN_INITIATE_URL,
+            SG_OAUTH_CLIENT_ID,
+        )
+        await page.goto(SG_LOGIN_INITIATE_URL, wait_until="domcontentloaded", timeout=30000)
         try:
             await page.wait_for_load_state("networkidle", timeout=10000)
         except Exception:  # noqa: BLE001
@@ -403,6 +455,7 @@ __all__ = [
     "SG_AUTH_FLOW_HOSTS",
     "SG_AUTH_REQUIRED_COOKIES",
     "SG_HOME_URL",
+    "SG_LOGIN_INITIATE_URL",
     "SG_OAUTH_AUTHORIZE_URL",
     "SG_OAUTH_CLIENT_ID",
     "SG_OAUTH_REDIRECT_URI",

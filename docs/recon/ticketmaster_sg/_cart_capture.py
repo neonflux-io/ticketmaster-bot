@@ -82,9 +82,10 @@ async def _capture_dom(page, dest: Path, *, screenshot: Path | None = None) -> N
 
 async def _maybe_login(page, email: str, password: str) -> None:
     """If we land on auth.ticketmaster.com, fill creds and wait for OAuth bounce."""
-    if "auth.ticketmaster.com" not in (page.url or ""):
+    current = (page.url or "")
+    if "auth.ticketmaster.com" not in current:
         return
-    _print(f"login page detected (url={page.url}); filling email")
+    _print(f"login page detected (url={current}); filling email")
     try:
         await page.locator("input#email-input").wait_for(state="visible", timeout=20_000)
         await page.locator("input#email-input").fill(email)
@@ -156,25 +157,18 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
         )
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
 
-        # 1. Force login via the OAuth URL (avoids the /profile drop that just
-        #    silently shows the visitor page when not logged in).
-        from urllib.parse import urlencode
-
-        oauth_url = "https://auth.ticketmaster.com/as/authorization.oauth2?" + urlencode(
-            {
-                "client_id": "1a554b2c04dc.web.ticketmaster.sg",
-                "response_type": "code",
-                "scope": "openid profile phone email tm",
-                "redirect_uri": "https://identity.ticketmaster.sg/exchange",
-                "visualPresets": "tmsg",
-                "lang": "en-sg",
-            }
-        )
-        _print(f"forcing login: {oauth_url}")
+        # 1. Force login via the SG /login entry point. The SG site 302s
+        #    through identity.ticketmaster.sg/sign-in → auth.ticketmaster.com
+        #    with all the server-side tokens (placementId, integratorId,
+        #    intSiteToken, TMUO, deviceId, disableAutoOptIn) that PingFederate
+        #    needs. Navigating to a hand-built OAuth URL drops those tokens
+        #    and lands on PingFederate's "Modern Accounts Error Page".
+        login_url = "https://ticketmaster.sg/login"
+        _print(f"forcing login via: {login_url}")
         try:
-            await page.goto(oauth_url, wait_until="domcontentloaded", timeout=60_000)
+            await page.goto(login_url, wait_until="domcontentloaded", timeout=60_000)
         except Exception as exc:  # noqa: BLE001
-            _print(f"OAuth navigation warning: {exc}")
+            _print(f"login navigation warning: {exc}")
 
         # If we already have cookies, the OAuth will silently bounce us back
         # to ticketmaster.sg. If not, the form will be visible.

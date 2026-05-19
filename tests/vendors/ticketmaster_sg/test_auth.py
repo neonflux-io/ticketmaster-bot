@@ -8,13 +8,28 @@ builder. The complementary live-integration test lives in
 
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+import pytest
+from playwright.async_api import async_playwright
 
 from src.vendors.ticketmaster_sg import auth as sg_auth
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SG_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "vendors" / "ticketmaster_sg"
+SG_HOST = "ticketmaster.sg"
+SG_PORT = 443
+
+
+def _sg_reachable() -> bool:
+    """Return True iff we can open a TCP socket to ticketmaster.sg:443."""
+    try:
+        with socket.create_connection((SG_HOST, SG_PORT), timeout=5):
+            return True
+    except OSError:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +212,7 @@ def test_module_exports_required_names() -> None:
         "AuthError",
         "SG_AUTH_REQUIRED_COOKIES",
         "SG_HOME_URL",
+        "SG_LOGIN_INITIATE_URL",
         "SG_OAUTH_AUTHORIZE_URL",
         "SG_OAUTH_CLIENT_ID",
         "SG_OAUTH_REDIRECT_URI",
@@ -209,3 +225,95 @@ def test_module_exports_required_names() -> None:
     }
     missing = required - set(sg_auth.__all__)
     assert not missing, f"sg_auth module is missing exports: {missing}"
+
+
+def test_sg_login_initiate_url_is_sg_login_path() -> None:
+    """The login entry point we navigate to is ``ticketmaster.sg/login``."""
+    parsed = urlparse(sg_auth.SG_LOGIN_INITIATE_URL)
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "ticketmaster.sg"
+    assert parsed.path == "/login"
+
+
+# ---------------------------------------------------------------------------
+# Live: the SG /login entry point bounces to auth.ticketmaster.com with the
+# full set of server-only OAuth params PingFederate requires. This is the
+# only assertion that catches the "Modern Accounts Error Page" regression
+# we hit when we tried to hardcode the OAuth URL ourselves.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _sg_reachable(),
+    reason=f"ticketmaster.sg:{SG_PORT} is not reachable from this host",
+)
+async def test_live_sg_login_initiator_lands_on_auth_ticketmaster_com(tmp_path) -> None:
+    """Drive a real Chromium against ``https://ticketmaster.sg/login`` and
+    assert the SG site redirects to the canonical PingFederate OAuth host
+    (``auth.ticketmaster.com``) with the SG-specific client_id /
+    redirect_uri / visualPresets values **and** the server-generated
+    tokens (``placementId``, ``integratorId``, ``TMUO``, ``deviceId``)
+    that PingFederate requires.
+
+    The test catches two regressions:
+
+    * The OAuth host changing (e.g. to ``auth.th.ticketmaster.com``,
+      ``auth.sg.ticketmaster.com``, etc.). If TM ever moves SG to a
+      regional auth host this assertion fails loudly with the actual
+      observed host in the failure message.
+    * The SG site stopping the ``/login`` → OAuth bounce. If TM ever
+      changes the SG login entry point, this test fails before the
+      bot fails in production.
+    """
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context(
+                locale="en-SG",
+                timezone_id="Asia/Singapore",
+                extra_http_headers={"Accept-Language": "en-SG,en;q=0.8"},
+            )
+            page = await context.new_page()
+            try:
+                await page.goto(
+                    sg_auth.SG_LOGIN_INITIATE_URL,
+                    wait_until="domcontentloaded",
+                    timeout=45_000,
+                )
+            except Exception as exc:  # noqa: BLE001
+                pytest.skip(f"Live SG /login navigation failed: {exc}")
+
+            try:
+                await page.wait_for_load_state("networkidle", timeout=20_000)
+            except Exception:  # noqa: BLE001
+                pass
+
+            final_url = page.url or ""
+            parsed = urlparse(final_url)
+            assert parsed.netloc == "auth.ticketmaster.com", (
+                f"SG /login should redirect to auth.ticketmaster.com but landed on "
+                f"{parsed.netloc!r} (full url: {final_url})"
+            )
+            assert parsed.path == "/as/authorization.oauth2", (
+                f"SG /login should redirect to /as/authorization.oauth2 but got "
+                f"{parsed.path!r} (full url: {final_url})"
+            )
+
+            qs = parse_qs(parsed.query)
+            # Sanity-check the *fixed* SG OAuth params first.
+            assert qs.get("client_id") == [sg_auth.SG_OAUTH_CLIENT_ID]
+            assert qs.get("redirect_uri") == [sg_auth.SG_OAUTH_REDIRECT_URI]
+            assert qs.get("visualPresets") == [sg_auth.SG_OAUTH_VISUAL_PRESETS]
+            assert qs.get("response_type") == ["code"]
+            # Then assert the *server-generated* tokens are present.
+            # These are what PingFederate validates; their absence is
+            # exactly what produced the "Modern Accounts Error Page"
+            # when we tried to hardcode the OAuth URL ourselves.
+            for required_key in ("placementId", "integratorId", "TMUO", "deviceId"):
+                assert required_key in qs, (
+                    f"Live SG /login redirect did not include {required_key!r}; got "
+                    f"keys={sorted(qs)} (full url: {final_url})"
+                )
+        finally:
+            await context.close()
+            await browser.close()
