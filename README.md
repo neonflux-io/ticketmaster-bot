@@ -13,7 +13,7 @@ end-to-end checkout are each their own swappable subsystem.
 
 | Subsystem | What ships | Source | Docs |
 | --- | --- | --- | --- |
-| Vendor adapter | `TicketmasterAdapter` (`auth` → `navigator` → `queue` → `cart` → `checkout`); plugin loader for additional vendors | `src/vendors/`, `src/vendors/ticketmaster/` | [docs/vendors.md](docs/vendors.md), [docs/architecture.md](docs/architecture.md) |
+| Vendor adapters | `TicketmasterAdapter` (US/CA flow) and `TicketmasterSGAdapter` (Singapore flow); host-based auto-detection + plugin loader for additional vendors | `src/vendors/`, `src/vendors/ticketmaster/`, `src/vendors/ticketmaster_sg/` | [docs/vendors.md](docs/vendors.md), [docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md), [docs/architecture.md](docs/architecture.md) |
 | Selection strategies | `cheapest`, `best_available`, `section_target`, `price_range`, `multi_section`, `accessible`, `seat_quality`, `random_pick`, `composite`, `interactive_seatmap`, `resale_filter` (wrapper), `vfan_aware` (wrapper) | `src/strategies/`, `src/strategies/factory.py` | [docs/strategies.md](docs/strategies.md) |
 | Notifiers | desktop toast, generic webhook, Discord embeds, Slack, Telegram (MarkdownV2), fan-out via `MultiplexNotifier` | `src/notifiers/`, `src/notifiers/multiplex.py` | [docs/notifiers.md](docs/notifiers.md) |
 | Anti-detection | Cubic-Bezier mouse moves, normally-distributed `human_type`, pre-flight warmer, mobile/desktop profile, stealth patches | `src/humanize/`, `src/utils/stealth.py` | [docs/humanize.md](docs/humanize.md) |
@@ -53,6 +53,36 @@ environment, including `.env` (auto-loaded via `python-dotenv`). The fallback
 env vars `TM_EMAIL` / `TM_PASSWORD` activate when no `accounts.yaml` is
 present.
 
+## Choosing a vendor
+
+The bot ships with two vendor adapters and auto-detects which one to
+use from the event URL:
+
+| Event URL host | Vendor adapter | Where to look |
+| --- | --- | --- |
+| `ticketmaster.com`, `www.ticketmaster.com`, `livenation.com` | `ticketmaster` (US/CA, default) | `src/vendors/ticketmaster/` |
+| `ticketmaster.sg`, `*.ticketmaster.sg` | `ticketmaster_sg` (Singapore) | `src/vendors/ticketmaster_sg/`, [docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md) |
+
+```bash
+# Auto-detect (recommended). Vendor picked from the first event URL.
+python run.py --events https://www.ticketmaster.com/event/REPLACE_WITH_ID
+python run.py --events https://ticketmaster.sg/activity/detail/<gameCode>
+
+# Explicit override. Required when you want to --dry-run or --explain
+# without a live URL in the events list.
+python run.py --vendor ticketmaster_sg --dry-run
+```
+
+The SG adapter is a worked second-vendor example covering OAuth login
+on `auth.ticketmaster.com` (with a Singapore-specific `client_id` and
+`identity.ticketmaster.sg` redirect), the Yii image CAPTCHA +
+invisible reCAPTCHA Enterprise + Queue-It captcha workflow, SGD price
+parsing (`$`, `S$`, `SGD `, `SGD$`), and a separate selector YAML
+(`config/selectors/ticketmaster_sg.yaml`). See
+[docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md) for
+the SG operator guide and [docs/vendors.md](docs/vendors.md) for the
+`VendorAdapter` contract.
+
 ## CLI reference
 
 Every flag below is declared in `src/cli.py` and documented in that
@@ -65,8 +95,13 @@ python run.py --config config/config.yaml
 python run.py -c config/config.yaml --accounts config/accounts.yaml
 python run.py -a config/accounts.yaml --account-name primary
 
-# Vendor selection (currently only "ticketmaster" ships; --vendor nope -> exit 2)
+# Vendor selection. Two adapters ship: `ticketmaster` (US/CA) and
+# `ticketmaster_sg` (Singapore). When --vendor is omitted, the bot
+# auto-detects by the first event URL's host: ticketmaster.sg picks
+# the SG adapter, everything else picks ticketmaster. Invalid names
+# exit 2 with the offending value in stderr (e.g. --vendor nope).
 python run.py --vendor ticketmaster
+python run.py --vendor ticketmaster_sg
 
 # Layered config overlays
 python run.py --profile fast                                # apply config/profiles/fast.yaml
@@ -176,7 +211,8 @@ ticketmaster-bot/
 │   ├── registry/                     # Generic Registry[T] + 5 instances
 │   ├── vendors/
 │   │   ├── base.py                   # VendorAdapter ABC
-│   │   └── ticketmaster/             # auth/navigator/queue/cart/checkout/core
+│   │   ├── ticketmaster/             # US/CA: auth/navigator/queue/cart/checkout/core
+│   │   └── ticketmaster_sg/          # SG: SG-scoped selectors + SGD price + Queue-It
 │   ├── strategies/                   # 12 SelectionStrategy implementations
 │   ├── notifiers/                    # desktop/webhook/discord/slack/telegram + multiplex
 │   ├── humanize/                     # mouse/typing/warmer/profile
@@ -188,7 +224,9 @@ ticketmaster-bot/
 ├── config/
 │   ├── config.yaml                   # Main runtime config
 │   ├── profiles/                     # fast.yaml, safe.yaml
-│   ├── selectors/ticketmaster.yaml   # Logical-name → fallback list
+│   ├── selectors/
+│   │   ├── ticketmaster.yaml         # US/CA logical-name → fallback list
+│   │   └── ticketmaster_sg.yaml      # SG logical-name → fallback list
 │   └── accounts.yaml.example         # Copy to accounts.yaml (gitignored)
 ├── docs/                             # One subsystem doc per directory above
 ├── tests/                            # pytest + pytest-asyncio + real Chromium
@@ -221,12 +259,36 @@ catalogued in [docs/notifiers.md](docs/notifiers.md).
 
 ### Vendors
 
-Only the Ticketmaster adapter ships today. Adding a new vendor is a
-one-file drop-in: subclass `VendorAdapter` (`src/vendors/base.py`),
-return a runner with the per-step modules wired up, and register the
-class either via the `ticketmaster_bot.vendors` entry-point group or by
-calling `src.registry.vendors.register(name, cls)` at import time.
-See [docs/vendors.md](docs/vendors.md) for the worked example.
+Two adapters ship today:
+
+- `ticketmaster` — the US/CA flow at `src/vendors/ticketmaster/`. The
+  reference implementation of the `VendorAdapter` contract; covers
+  `ticketmaster.com` (and the historic Live Nation host fallbacks).
+- `ticketmaster_sg` — the Singapore flow at
+  `src/vendors/ticketmaster_sg/`. A second worked vendor example
+  covering `ticketmaster.sg`, with SG-specific OAuth login (PingFederate
+  with a region-specific `client_id` + `identity.ticketmaster.sg`
+  redirect), Yii image CAPTCHA + invisible reCAPTCHA Enterprise + Queue-It
+  handling, and an SGD price parser (`$`, `S$`, `SGD `, `SGD$`).
+
+Picking between them is automatic: omit `--vendor` and the bot reads
+the host of `events[0].url`. `ticketmaster.sg` (and subdomains like
+`www.ticketmaster.sg`) selects `ticketmaster_sg`; everything else —
+including `ticketmaster.com` — falls through to `ticketmaster`. Pass
+`--vendor <name>` to override the auto-detection. See
+[docs/vendors.md](docs/vendors.md) for the full contract and
+[docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md) for
+the SG operator guide (captcha workflow, regional payment notes, SG
+configuration knobs).
+
+Adding a third vendor is a one-package drop-in: subclass
+`VendorAdapter` (`src/vendors/base.py`), return a runner with the
+per-step modules wired up, register the class via the
+`ticketmaster_bot.vendors` entry-point group or by calling
+`src.registry.vendors.register(name, cls)` at import time, and add a
+`config/selectors/<vendor>.yaml` for the new DOM. The Singapore
+adapter is the canonical second-vendor example for both the code
+layout and the host-based auto-detection table in `src/main.py`.
 
 ### Hooks
 

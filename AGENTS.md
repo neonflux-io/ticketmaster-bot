@@ -16,7 +16,8 @@ ticketmaster-bot/
 │   ├── registry/                    # Registry[T] + 5 instances
 │   ├── vendors/
 │   │   ├── base.py                  # VendorAdapter ABC
-│   │   └── ticketmaster/            # auth/navigator/queue/cart/checkout/core
+│   │   ├── ticketmaster/            # US/CA: auth/navigator/queue/cart/checkout/core
+│   │   └── ticketmaster_sg/         # SG: SG-scoped selectors + SGD price + Queue-It
 │   ├── strategies/                  # SelectionStrategy implementations
 │   ├── notifiers/                   # desktop/webhook/discord/slack/telegram + multiplex
 │   ├── humanize/                    # mouse/typing/warmer/profile
@@ -28,7 +29,9 @@ ticketmaster-bot/
 ├── config/
 │   ├── config.yaml                  # Main runtime config (committed)
 │   ├── profiles/                    # fast.yaml, safe.yaml
-│   ├── selectors/ticketmaster.yaml  # Logical-name → fallback list
+│   ├── selectors/
+│   │   ├── ticketmaster.yaml        # US/CA logical-name → fallback list
+│   │   └── ticketmaster_sg.yaml     # SG logical-name → fallback list
 │   └── accounts.yaml.example        # Credential template (real file gitignored)
 ├── docs/                            # One subsystem doc per directory
 ├── tests/                           # pytest + pytest-asyncio + real Chromium
@@ -41,6 +44,22 @@ State flow lives in `src/vendors/ticketmaster/core.py`; each step (login,
 queue, select, cart, checkout) is its own module in the same directory.
 The legacy `src/bot/` package is a thin re-export shim over
 `src/vendors/ticketmaster/` and is kept only for backwards compatibility.
+
+The Singapore adapter at `src/vendors/ticketmaster_sg/` is the second
+shipped vendor and the canonical worked example for adding a new
+vendor: it subclasses `BotRunner` from
+`src/vendors/ticketmaster/core.py` to inherit the state machine and
+only overrides the per-step modules + selectors. SG-specific behaviours
+(SGD price parser, Yii image CAPTCHA + invisible reCAPTCHA Enterprise
+handling, Queue-It customer id `ticketmasterasia`, SG OAuth via
+`client_id=...tmsg`) live in their own modules under
+`src/vendors/ticketmaster_sg/`. See [docs/vendors.md](docs/vendors.md)
+and [docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md)
+for the full story.
+
+Vendor selection is automatic from the first event URL's host:
+`ticketmaster.sg` → `ticketmaster_sg`, anything else → `ticketmaster`.
+`--vendor <name>` overrides the auto-detection.
 
 ## Build, Test, and Development Commands
 
@@ -191,26 +210,49 @@ pgrep -f 'chromium|headless_shell|uvicorn' | wc -l
 
 ### Adding a vendor
 
+`src/vendors/ticketmaster_sg/` is the canonical second-vendor example —
+mirror it for any new adapter. The Singapore adapter inherits its
+state machine from the US `BotRunner` and only overrides the per-step
+modules + selectors, which is the minimum surface a new vendor needs to
+re-implement.
+
 1. Create `src/vendors/<vendor>/` mirroring the layout of
-   `src/vendors/ticketmaster/`: at minimum, `adapter.py` (an
-   implementation of `VendorAdapter` from `src/vendors/base.py`) and
-   per-step modules (`auth.py`, `navigator.py`, `queue.py`, `cart.py`,
-   `checkout.py`, `core.py`).
+   `src/vendors/ticketmaster_sg/` (or `src/vendors/ticketmaster/` if
+   the new vendor's state machine truly diverges): at minimum,
+   `adapter.py` (an implementation of `VendorAdapter` from
+   `src/vendors/base.py`) and per-step modules (`auth.py`,
+   `navigator.py`, `queue.py`, `cart.py`, `checkout.py`, `core.py`).
 2. `VendorAdapter.build_runner(config, account)` should return a runner
    exposing `async run() -> bool`. The state machine pattern in
-   `src/vendors/ticketmaster/core.py` is the worked example.
+   `src/vendors/ticketmaster/core.py` is the worked example; the SG
+   adapter at `src/vendors/ticketmaster_sg/core.py` shows how to
+   subclass it and only swap the per-step modules.
 3. Register the adapter in `src/vendors/<vendor>/__init__.py` via
    `src.registry.vendors.register("<vendor>", <Adapter>)`. Importing the
    subpackage from `src.vendors/__init__.py` registers it eagerly; the
    `ticketmaster_bot.vendors` entry-point group is the external plugin
    path.
 4. Add the vendor's selectors to `config/selectors/<vendor>.yaml` and
-   load them through `src/registry/selectors.py`.
+   load them either through the shared registry in
+   `src/registry/selectors.py` or, when logical-name collisions with
+   another vendor's YAML are a risk, via a vendor-scoped helper
+   (`src/vendors/<vendor>/selectors.py`) — see
+   `src/vendors/ticketmaster_sg/selectors.py` for the pattern.
 5. Add an `src/vendors/<vendor>/` test directory (`tests/vendors/<vendor>/`)
    with at least one real-Chromium end-to-end smoke against a fixture
-   HTML file.
+   HTML file. Mirror `tests/vendors/ticketmaster_sg/` for the layout
+   (`test_adapter.py`, `test_auth.py`, `test_cart.py`,
+   `test_checkout.py`, `test_navigator.py`, `test_queue.py`,
+   `test_recon_artifacts.py`).
 6. Document the adapter in `docs/vendors.md`, including the per-step
-   responsibilities and any non-Ticketmaster YAML keys.
+   responsibilities and any non-Ticketmaster YAML keys. Add an
+   operator-facing user guide at
+   `docs/vendors_<vendor>.md` (see
+   [docs/vendors_ticketmaster_sg.md](docs/vendors_ticketmaster_sg.md)
+   for the model).
+7. If the new vendor is selected by a distinct host, add its
+   `(host_suffix, vendor_name)` pair to `_HOST_VENDOR_MAP` in
+   `src/main.py` so the bot auto-detects it from the event URL.
 
 ## Security & Configuration Tips
 

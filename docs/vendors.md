@@ -1,10 +1,21 @@
 # Vendors
 
-A "vendor" is a ticketing platform the bot can drive (Ticketmaster, AXS,
-SeeTickets, …). Each vendor lives under `src/vendors/<name>/` and
-implements `VendorAdapter` from `src/vendors/base.py`. Today the only
-shipped vendor is Ticketmaster (`src/vendors/ticketmaster/`); this
-document describes the contract so adding a new one is a one-package
+A "vendor" is a ticketing platform the bot can drive (Ticketmaster US,
+Ticketmaster SG, AXS, SeeTickets, …). Each vendor lives under
+`src/vendors/<name>/` and implements `VendorAdapter` from
+`src/vendors/base.py`. The shipped vendors today are:
+
+- `ticketmaster` (the US/CA flow, `src/vendors/ticketmaster/`) — the
+  reference implementation of the contract.
+- `ticketmaster_sg` (the Singapore flow, `src/vendors/ticketmaster_sg/`)
+  — a worked second-vendor example demonstrating per-vendor selectors,
+  region-specific currency / date parsing, and a distinct captcha
+  surface (Yii image CAPTCHA + invisible reCAPTCHA Enterprise + Queue-It).
+  See [docs/vendors_ticketmaster_sg.md](vendors_ticketmaster_sg.md) for
+  the operator-facing user guide.
+
+This document describes the `VendorAdapter` contract and walks through
+both shipped adapters as proof that adding a new one is a one-package
 drop-in.
 
 ## The `VendorAdapter` contract
@@ -89,6 +100,22 @@ raises `NotRegistered` with the unknown name in the message when the
 name is bad. The validation contract assertion
 `refactor.cli-vendor` pins this exit-code-2 + stderr behaviour.
 
+When `--vendor` is **omitted**, `src/main.py::detect_vendor_for_url`
+chooses an adapter by the host of the first configured event URL.
+The mapping (`_HOST_VENDOR_MAP`) is small and ordered:
+
+```python
+_HOST_VENDOR_MAP = (("ticketmaster.sg", "ticketmaster_sg"),)
+DEFAULT_VENDOR = "ticketmaster"
+```
+
+`ticketmaster.sg` and any subdomain thereof (`www.ticketmaster.sg`,
+`my.ticketmaster.sg`) resolve to `ticketmaster_sg`; everything else —
+including `ticketmaster.com` and `www.ticketmaster.com` — falls
+through to the default US adapter. The auto-detection only fires
+after configuration loads, so it sees the merged events list
+including any `--events URL` overrides on the CLI.
+
 ## The Ticketmaster adapter
 
 Shipped files under `src/vendors/ticketmaster/`:
@@ -111,6 +138,113 @@ A backwards-compatibility shim lives at `src/bot/__init__.py` (referenced
 by the `refactor.bot-shim` assertion) re-exporting these modules so any
 external caller using the legacy `from src.bot import auth` form keeps
 working.
+
+## The Ticketmaster SG adapter (worked second-vendor example)
+
+The Singapore adapter at `src/vendors/ticketmaster_sg/` is the
+canonical example of how a second vendor slots into the existing
+machinery. It is structurally identical to the US adapter — same
+six per-step modules plus an `adapter.py` and `__init__.py` — but
+every behaviour the SG site does differently is encoded in a
+SG-specific module, never patched into the shared US code.
+
+```
+src/vendors/ticketmaster_sg/
+├── __init__.py    # registers TicketmasterSGAdapter with the vendor registry
+├── adapter.py     # class TicketmasterSGAdapter(VendorAdapter)
+├── core.py        # BotRunner subclass: inherits the state machine, swaps the steps
+├── auth.py        # SG OAuth via auth.ticketmaster.com (client_id=...tmsg)
+├── navigator.py   # /activity/detail/<game> open + SG date parser
+├── queue.py       # Queue-It handler (customer id = "ticketmasterasia")
+├── cart.py        # button#autoMode + SG terms checkbox + marketing-optin guard
+├── checkout.py    # SG delivery / saved-card / SGD cart verifier / Place Order
+├── price.py       # SGD price parser (S$, SGD, SGD$, bare $)
+└── selectors.py   # SG-scoped selector registry over ticketmaster_sg.yaml
+```
+
+### How it reuses the US machinery (and where it diverges)
+
+The SG runner inherits the state machine outright:
+
+```python
+# src/vendors/ticketmaster_sg/core.py
+from ..ticketmaster.core import BotRunner as _BaseBotRunner
+from . import auth, cart, checkout, navigator, queue
+
+
+class BotRunner(_BaseBotRunner):
+    """SG-bound BotRunner. Inherits the state machine, swaps the steps."""
+
+    auth_module = auth
+    cart_module = cart
+    checkout_module = checkout
+    navigator_module = navigator
+    queue_module = queue
+```
+
+Because the US `BotRunner` reads its step modules from instance
+attributes (`auth_module`, `cart_module`, …), the SG subclass only
+has to re-bind those attributes — every lifecycle event, hook
+dispatch, proxy plumbing, stealth init, and run-artefacts wiring
+fires identically for both vendors with zero duplication.
+
+Where the SG flow diverges from the US flow, the divergence lives in
+its own module:
+
+| Concern | SG-specific module | What changed |
+| --- | --- | --- |
+| Selectors | `src/vendors/ticketmaster_sg/selectors.py` + `config/selectors/ticketmaster_sg.yaml` | SG uses Yii ids (`button#autoMode`, `select[name='TicketForm[count]']`, `input#TicketForm_verifyCode`) — zero `data-bdd` attributes. A dedicated selector registry sidesteps logical-name collisions with the US YAML. |
+| Captcha | `src/vendors/ticketmaster_sg/auth.py` | Two systems run side-by-side on `/ticket/check-captcha/`: a Yii image CAPTCHA and an invisible reCAPTCHA Enterprise widget. `wait_for_human_if_captcha` covers both. |
+| Login | `src/vendors/ticketmaster_sg/auth.py` | PingFederate OAuth with SG-specific `client_id` and `redirect_uri=identity.ticketmaster.sg/exchange`. `is_logged_in` validates the SG cookie set (`eps_sid`, `tmpt`, `TIXPUISID`), not the US set. |
+| Date parsing | `src/vendors/ticketmaster_sg/navigator.py::parse_sg_date` | SG renders show times as `10 Dec 2026 (Thu.) 05:00 pm`; parser localises to Asia/Singapore (UTC+08:00, no DST). |
+| State detection | `src/vendors/ticketmaster_sg/navigator.py::detect_state` | Adds SG-only states `captcha`, `login_required`, `login_in_progress`, `interactive_seatmap` keyed off URL prefixes (`/ticket/check-captcha/`, `identity.ticketmaster.sg/exchange`, …). |
+| Currency parsing | `src/vendors/ticketmaster_sg/price.py::parse_sgd_price` | Understands `$X`, `S$X`, `SGD X`, `SGD$X`; falls back to the shared US `$X` extractor so the same parser still works for the bare-dollar shape. |
+| Quantity | `src/vendors/ticketmaster_sg/cart.py::set_quantity` | SG sets quantity on the *pre-cart* `select#TicketForm_count`; the US site sets it on the cart-page `<select name="quantity">`. |
+| Terms checkbox | `src/vendors/ticketmaster_sg/cart.py::accept_terms_if_needed` | SG's `input#TicketForm_agree` sits next to marketing opt-ins; the helper blocks marketing matches via an explicit blocklist of id/name/label keywords. |
+| Queue | `src/vendors/ticketmaster_sg/queue.py` | Queue-It on `<event>.queue-it.net` (customer id `ticketmasterasia`) instead of TM's in-house Smart Queue. |
+| Section parsing | `src/vendors/ticketmaster_sg/checkout.py::_extract_sg_sections` | SG sometimes prints multi-word section labels like `Section: GEN ADM`; the SG extractor accepts a trailing run of uppercase tokens and normalises by collapsing whitespace, so `GENADM` and `GEN ADM` compare equal. |
+
+### Adapter registration
+
+The SG adapter follows the same two-channel discovery pattern as the
+US adapter:
+
+```python
+# src/vendors/ticketmaster_sg/__init__.py
+from src.registry import vendors as _vendor_registry
+from .adapter import TicketmasterSGAdapter
+
+if "ticketmaster_sg" not in _vendor_registry.registry:
+    _vendor_registry.register("ticketmaster_sg", TicketmasterSGAdapter)
+```
+
+Importing `src.vendors` (which `src/main.py` does once on startup)
+imports both `src.vendors.ticketmaster` and
+`src.vendors.ticketmaster_sg`; each subpackage registers its adapter
+on import as a side-effect. The `ticketmaster_bot.vendors`
+entry-point group remains the external plugin path for adapters
+shipped by other distributions.
+
+### Host-based vendor auto-detection
+
+`src/main.py::detect_vendor_for_url` reads the host of the first
+configured event URL and picks the SG adapter when the host is
+`ticketmaster.sg` (or a subdomain). The mapping is documented
+above under **How discovery works**. As a result, an end user
+typically does not need to pass `--vendor` at all:
+
+```bash
+# Auto-detects ticketmaster_sg.
+python run.py --events https://ticketmaster.sg/activity/detail/26sg_pglcs2major
+
+# Explicit override (used by --dry-run / --explain when the loaded
+# config has a placeholder ticketmaster.com URL).
+python run.py --vendor ticketmaster_sg --dry-run
+```
+
+See [docs/vendors_ticketmaster_sg.md](vendors_ticketmaster_sg.md)
+for the operator-facing details (SG configuration knobs, captcha
+workflow, regional payment notes).
 
 ## Adding a new vendor
 
