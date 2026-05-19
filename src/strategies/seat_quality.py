@@ -100,9 +100,7 @@ class SeatQualityStrategy(SelectionStrategy):
         return chosen
 
 
-async def _score_candidate(
-    candidate: TicketCandidate, tokens: tuple[str, ...]
-) -> float:
+async def _score_candidate(candidate: TicketCandidate, tokens: tuple[str, ...]) -> float:
     """Compute ``candidate``'s quality score."""
     score = 0.0
     try:

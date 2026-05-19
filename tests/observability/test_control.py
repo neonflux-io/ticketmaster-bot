@@ -195,9 +195,7 @@ async def test_stop_endpoint_shuts_server_down() -> None:
                 await client.get(f"http://127.0.0.1:{port}/status")
 
         # And the port must be re-bindable (no orphan listener).
-        assert not _port_is_listening(port), (
-            f"port {port} still has a listener after /stop"
-        )
+        assert not _port_is_listening(port), f"port {port} still has a listener after /stop"
         with socket.socket() as s:
             s.bind(("127.0.0.1", port))
     finally:
@@ -218,9 +216,7 @@ async def test_no_orphan_listener_after_normal_shutdown() -> None:
     await server.shutdown()
     assert server.serve_task is not None
     assert server.serve_task.done()
-    assert not _port_is_listening(port), (
-        f"port {port} still has a listener after shutdown()"
-    )
+    assert not _port_is_listening(port), f"port {port} still has a listener after shutdown()"
     # And the port is immediately reusable.
     with socket.socket() as s:
         s.bind(("127.0.0.1", port))

@@ -1,4 +1,5 @@
 """Tests for src/utils/logger.py - markup stripping + level validation."""
+
 from __future__ import annotations
 
 import pytest

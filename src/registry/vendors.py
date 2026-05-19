@@ -1,13 +1,12 @@
 """Singleton registry for vendor adapters (Ticketmaster, AXS, ...)."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from .base import Registry
 
-registry: Registry[Any] = Registry(
-    "vendors", entry_point_group="ticketmaster_bot.vendors"
-)
+registry: Registry[Any] = Registry("vendors", entry_point_group="ticketmaster_bot.vendors")
 
 
 def register(name: str, obj: Any) -> Any:

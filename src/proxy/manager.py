@@ -67,14 +67,12 @@ def parse_proxy_url(url: str) -> dict[str, str]:
     # those before the more specific host/port checks.
     if "://" not in trimmed:
         raise ValueError(
-            f"proxy URL {trimmed!r} is missing a scheme "
-            "(e.g. 'http://', 'https://', 'socks5://')"
+            f"proxy URL {trimmed!r} is missing a scheme (e.g. 'http://', 'https://', 'socks5://')"
         )
     parsed = urlparse(trimmed)
     if not parsed.scheme:
         raise ValueError(
-            f"proxy URL {url!r} is missing a scheme "
-            "(e.g. 'http://', 'https://', 'socks5://')"
+            f"proxy URL {url!r} is missing a scheme (e.g. 'http://', 'https://', 'socks5://')"
         )
     if not parsed.hostname:
         raise ValueError(f"proxy URL {url!r} is missing a host")
@@ -169,9 +167,7 @@ class ProxyManager:
             else:  # sticky
                 key = account_name or ""
                 if key not in self._sticky_assignments:
-                    self._sticky_assignments[key] = (
-                        self._next_sticky_index % len(self._parsed)
-                    )
+                    self._sticky_assignments[key] = self._next_sticky_index % len(self._parsed)
                     self._next_sticky_index += 1
                 index = self._sticky_assignments[key]
 

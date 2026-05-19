@@ -873,9 +873,7 @@ def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
         raise ValueError(f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}")
     fmt = str(logging_raw.get("format", "rich")).lower()
     if fmt not in _VALID_LOG_FORMATS:
-        raise ValueError(
-            f"logging.format must be one of {sorted(_VALID_LOG_FORMATS)}, got {fmt!r}"
-        )
+        raise ValueError(f"logging.format must be one of {sorted(_VALID_LOG_FORMATS)}, got {fmt!r}")
     artifacts_raw = logging_raw.get("artifacts", {}) or {}
     if not isinstance(artifacts_raw, dict):
         raise ValueError(f"logging.artifacts must be a mapping, got {type(artifacts_raw).__name__}")

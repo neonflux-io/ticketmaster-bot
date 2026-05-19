@@ -87,8 +87,7 @@ class LifecycleDispatcher:
         """
         if event_type not in _LIFECYCLE_EVENTS_SET:
             raise ValueError(
-                f"unknown lifecycle event {event_type!r}; "
-                f"expected one of {LIFECYCLE_EVENTS}"
+                f"unknown lifecycle event {event_type!r}; expected one of {LIFECYCLE_EVENTS}"
             )
         for hook in self.registry.all():
             if not hook.enabled:

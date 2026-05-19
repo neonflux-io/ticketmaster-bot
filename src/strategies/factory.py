@@ -73,8 +73,7 @@ def build_strategy(cfg: TicketsConfig) -> SelectionStrategy:
     if cfg.strategy == "resale_filter":
         if cfg.inner_strategy is None:
             raise ValueError(
-                "tickets.strategy='resale_filter' requires "
-                "tickets.inner_strategy to be set"
+                "tickets.strategy='resale_filter' requires tickets.inner_strategy to be set"
             )
         return ResaleFilterStrategy(
             inner=_build_inner_strategy(cfg.inner_strategy),
@@ -84,13 +83,10 @@ def build_strategy(cfg: TicketsConfig) -> SelectionStrategy:
     if cfg.strategy == "vfan_aware":
         if cfg.inner_strategy is None:
             raise ValueError(
-                "tickets.strategy='vfan_aware' requires "
-                "tickets.inner_strategy to be set"
+                "tickets.strategy='vfan_aware' requires tickets.inner_strategy to be set"
             )
         if not cfg.vfan_aware.code:
-            raise ValueError(
-                "tickets.strategy='vfan_aware' requires tickets.vfan_aware.code"
-            )
+            raise ValueError("tickets.strategy='vfan_aware' requires tickets.vfan_aware.code")
         return VFanAwareStrategy(
             inner=_build_inner_strategy(cfg.inner_strategy),
             code=cfg.vfan_aware.code,

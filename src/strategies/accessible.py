@@ -71,10 +71,7 @@ class AccessibleStrategy(SelectionStrategy):
             survivors = list(candidates)
 
         if self.max_price is not None:
-            survivors = [
-                c for c in survivors
-                if c.price is not None and c.price <= self.max_price
-            ]
+            survivors = [c for c in survivors if c.price is not None and c.price <= self.max_price]
             if not survivors:
                 log.warning(
                     "All accessible candidates exceeded max_price=%s",

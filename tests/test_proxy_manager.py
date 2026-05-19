@@ -415,9 +415,7 @@ async def test_botrunner_passes_proxy_to_launch_persistent_context(
     real_async_playwright = async_playwright
 
     class _RecordingChromium:
-        async def launch_persistent_context(
-            self, *args: Any, **kwargs: Any
-        ) -> None:
+        async def launch_persistent_context(self, *args: Any, **kwargs: Any) -> None:
             captured.update(kwargs)
             raise _LaunchCaptured(kwargs)
 
@@ -466,9 +464,7 @@ async def test_botrunner_omits_proxy_kwarg_when_disabled(
     captured: dict[str, Any] = {}
 
     class _RecordingChromium:
-        async def launch_persistent_context(
-            self, *args: Any, **kwargs: Any
-        ) -> None:
+        async def launch_persistent_context(self, *args: Any, **kwargs: Any) -> None:
             captured.update(kwargs)
             raise _LaunchCaptured(kwargs)
 

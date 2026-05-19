@@ -21,9 +21,7 @@ import pytest
 
 from src.utils.logger import JsonFormatter, setup_logger
 
-_ISO_8601_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$"
-)
+_ISO_8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$")
 
 _REQUIRED_KEYS = {"timestamp", "level", "name", "message"}
 

@@ -52,9 +52,7 @@ MIN_DOC_BYTES: int = 1024
 #: a closing backtick, a closing paren, a comma, a semicolon, or end of
 #: input. Trailing punctuation like a period is stripped at match-time
 #: by the resolver below so prose like "see src/cli.py." still works.
-_PATH_RE: re.Pattern[str] = re.compile(
-    r"(?P<path>(?:src|config)/[A-Za-z0-9_./\-]+)"
-)
+_PATH_RE: re.Pattern[str] = re.compile(r"(?P<path>(?:src|config)/[A-Za-z0-9_./\-]+)")
 
 
 def _extracted_paths(text: str) -> list[str]:
@@ -108,10 +106,7 @@ def test_doc_references_real_source_file(doc_name: str) -> None:
         if not target.exists():
             missing.append(rel_path)
 
-    assert not missing, (
-        f"Doc {doc_path} references paths that do not exist in the repo: "
-        f"{missing}"
-    )
+    assert not missing, f"Doc {doc_path} references paths that do not exist in the repo: {missing}"
 
 
 def test_docs_directory_contains_only_expected_files() -> None:
@@ -129,6 +124,4 @@ def test_docs_directory_contains_only_expected_files() -> None:
         for entry in DOCS_DIR.iterdir()
         if entry.is_file() and entry.suffix.lower() != ".md"
     ]
-    assert not unexpected, (
-        f"Unexpected non-markdown files in {DOCS_DIR}: {unexpected}"
-    )
+    assert not unexpected, f"Unexpected non-markdown files in {DOCS_DIR}: {unexpected}"

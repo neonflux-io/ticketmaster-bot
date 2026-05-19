@@ -1,4 +1,5 @@
 """Desktop notifications using plyer (graceful fallback if unsupported)."""
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,7 @@ def notify(title: str, message: str, *, desktop: bool = True, sound: bool = True
         return
 
     try:
-        from plyer import notification  # type: ignore[import-untyped]
+        from plyer import notification
 
         notification.notify(
             title=title,

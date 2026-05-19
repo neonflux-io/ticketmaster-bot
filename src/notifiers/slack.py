@@ -159,9 +159,7 @@ class SlackNotifier(WebhookNotifier):
         # was set, or an exception was raised; the defensive check below
         # keeps mypy happy and surfaces unexpected upstream contract drift.
         if response is None:  # pragma: no cover - defensive
-            raise NotifierError(
-                f"Slack POST to {self.url} returned no response"
-            )
+            raise NotifierError(f"Slack POST to {self.url} returned no response")
 
         body = response.text.strip()
         if body != SLACK_OK_BODY:

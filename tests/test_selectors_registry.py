@@ -145,9 +145,7 @@ def test_selector_for_unknown_name_raises() -> None:
 
 def test_selector_for_template_substitutes_named_placeholders() -> None:
     """A template registry entry is interpolated with named values."""
-    out = selector_for_template(
-        "delivery_option_label_template", keyword="mobile entry"
-    )
+    out = selector_for_template("delivery_option_label_template", keyword="mobile entry")
     assert out == "label:has-text('mobile entry')"
 
 
@@ -155,17 +153,13 @@ def test_selector_for_template_joins_multiple_fallbacks_with_comma_space() -> No
     out = selector_for_template("saved_card_label_template", last_four="1234")
     # Three fallbacks live in the YAML, all containing the substituted value.
     assert out == (
-        "label:has-text('ending in 1234'), "
-        "label:has-text('•••• 1234'), "
-        "label:has-text('***1234')"
+        "label:has-text('ending in 1234'), label:has-text('•••• 1234'), label:has-text('***1234')"
     )
 
 
 def test_selector_for_template_escapes_quote_in_value() -> None:
     """A ``"`` in the value must be CSS-escaped so the selector stays well-formed."""
-    out = selector_for_template(
-        "seatmap_seat_rect_template", section='A"B', row="A", seat="1"
-    )
+    out = selector_for_template("seatmap_seat_rect_template", section='A"B', row="A", seat="1")
     # The double-quote in section must come through escaped (``A\"B``);
     # the surrounding quote characters from the template stay intact.
     assert 'data-section="A\\"B"' in out

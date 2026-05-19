@@ -379,9 +379,7 @@ def test_escape_mrkdwn_escapes_documented_specials() -> None:
     assert escape_mrkdwn("&") == "&amp;"
     assert escape_mrkdwn("<a>") == "&lt;a&gt;"
     # Slack formatting markers stay untouched so users can still bold/italic.
-    assert escape_mrkdwn("*bold* _italic_ ~strike~ `code`") == (
-        "*bold* _italic_ ~strike~ `code`"
-    )
+    assert escape_mrkdwn("*bold* _italic_ ~strike~ `code`") == ("*bold* _italic_ ~strike~ `code`")
 
 
 def test_escape_mrkdwn_does_not_double_escape_ampersands() -> None:

@@ -52,9 +52,7 @@ def test_parse_set_overrides_dotted_path_creates_nested_dict():
 
 
 def test_parse_set_overrides_multiple_paths_merge_into_single_tree():
-    result = parse_set_overrides(
-        ["tickets.quantity=4", "checkout.auto_purchase=false"]
-    )
+    result = parse_set_overrides(["tickets.quantity=4", "checkout.auto_purchase=false"])
     assert result == {
         "tickets": {"quantity": 4},
         "checkout": {"auto_purchase": False},
@@ -62,9 +60,7 @@ def test_parse_set_overrides_multiple_paths_merge_into_single_tree():
 
 
 def test_parse_set_overrides_overlapping_paths_merge():
-    result = parse_set_overrides(
-        ["tickets.quantity=4", "tickets.strategy=cheapest"]
-    )
+    result = parse_set_overrides(["tickets.quantity=4", "tickets.strategy=cheapest"])
     assert result == {"tickets": {"quantity": 4, "strategy": "cheapest"}}
 
 
@@ -402,8 +398,10 @@ def test_cli_explain_with_profile_fast_reflects_profile_values():
 
 def test_cli_explain_with_set_overrides_applied():
     result = _run_cli(
-        "--set", "tickets.quantity=4",
-        "--set", "checkout.auto_purchase=false",
+        "--set",
+        "tickets.quantity=4",
+        "--set",
+        "checkout.auto_purchase=false",
         "--explain",
     )
     assert result.returncode == 0, result.stderr
@@ -433,8 +431,10 @@ def test_cli_explain_env_expansion_in_accounts(tmp_path, monkeypatch):
         """,
     )
     result = _run_cli(
-        "--config", str(cfg_dir / "config.yaml"),
-        "--accounts", str(cfg_dir / "accounts.yaml"),
+        "--config",
+        str(cfg_dir / "config.yaml"),
+        "--accounts",
+        str(cfg_dir / "accounts.yaml"),
         "--explain",
         env_extra={"TM_EMAIL": "user@example.com", "TM_PASSWORD": "pw"},
     )
@@ -456,8 +456,10 @@ def test_cli_dry_run_with_multiple_events_logs_each(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(cfg_dir / "config.yaml"),
-        "--accounts", str(cfg_dir / "no-accounts.yaml"),
+        "--config",
+        str(cfg_dir / "config.yaml"),
+        "--accounts",
+        str(cfg_dir / "no-accounts.yaml"),
         "--dry-run",
     )
     assert result.returncode == 0, result.stderr
@@ -477,8 +479,10 @@ def test_cli_dry_run_with_legacy_event_exits_zero(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(cfg_dir / "config.yaml"),
-        "--accounts", str(cfg_dir / "no-accounts.yaml"),
+        "--config",
+        str(cfg_dir / "config.yaml"),
+        "--accounts",
+        str(cfg_dir / "no-accounts.yaml"),
         "--dry-run",
     )
     assert result.returncode == 0, result.stderr

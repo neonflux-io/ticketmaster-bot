@@ -44,9 +44,9 @@ async def _page_with_rows(context: BrowserContext, rows: list[dict[str, str]]) -
 
 async def _click_count(page: Page, idx: int) -> int:
     return int(
-        await page.locator(
-            f'[data-bdd="quick-pick-row"][data-idx="{idx}"]'
-        ).get_attribute("data-click-count")
+        await page.locator(f'[data-bdd="quick-pick-row"][data-idx="{idx}"]').get_attribute(
+            "data-click-count"
+        )
         or "0"
     )
 
@@ -140,9 +140,7 @@ async def test_max_price_applied_per_preference(chromium_context):
             {"text": "Section 200 Row D $90.00"},
         ],
     )
-    strategy = MultiSectionStrategy(
-        sections=["100", "200"], max_price=200.0
-    )
+    strategy = MultiSectionStrategy(sections=["100", "200"], max_price=200.0)
     chosen = await strategy.pick(page)
     assert chosen is not None
     assert chosen.section == "200"

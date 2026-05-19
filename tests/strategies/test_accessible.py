@@ -28,11 +28,7 @@ def _click_recorder_script() -> str:
 
 
 def _row_html(idx: int, text: str, *, marker: str = "", extra_attrs: str = "") -> str:
-    return (
-        f'      <li data-bdd="quick-pick-row" data-idx="{idx}"{extra_attrs}>'
-        f"{text}{marker}"
-        "</li>"
-    )
+    return f'      <li data-bdd="quick-pick-row" data-idx="{idx}"{extra_attrs}>{text}{marker}</li>'
 
 
 async def _page_with_html(context: BrowserContext, body_inner: str) -> Page:
@@ -52,9 +48,9 @@ async def _page_with_html(context: BrowserContext, body_inner: str) -> Page:
 
 async def _click_count(page: Page, idx: int) -> int:
     return int(
-        await page.locator(
-            f'[data-bdd="quick-pick-row"][data-idx="{idx}"]'
-        ).get_attribute("data-click-count")
+        await page.locator(f'[data-bdd="quick-pick-row"][data-idx="{idx}"]').get_attribute(
+            "data-click-count"
+        )
         or "0"
     )
 
@@ -84,9 +80,7 @@ async def test_accessible_picks_accessible_row(chromium_context, fixture_url):
         assert await _click_count(page, other) == 0
 
 
-async def test_accessible_returns_none_when_no_accessible_rows(
-    chromium_context, fixture_url
-):
+async def test_accessible_returns_none_when_no_accessible_rows(chromium_context, fixture_url):
     """[dom.accessible-reject]: zero accessible rows ⇒ pick() is None."""
     page = await chromium_context.new_page()
     await page.goto(fixture_url("quick_picks_basic"))
@@ -134,12 +128,8 @@ async def test_accessible_via_data_bdd_marker_on_row_itself(chromium_context):
     assert chosen is not None
     assert chosen.price == 200.0
     # The accessible row (idx=0) was clicked exactly once.
-    idx0_count = int(
-        await page.locator('[data-idx="0"]').get_attribute("data-click-count") or "0"
-    )
-    idx1_count = int(
-        await page.locator('[data-idx="1"]').get_attribute("data-click-count") or "0"
-    )
+    idx0_count = int(await page.locator('[data-idx="0"]').get_attribute("data-click-count") or "0")
+    idx1_count = int(await page.locator('[data-idx="1"]').get_attribute("data-click-count") or "0")
     assert idx0_count == 1
     assert idx1_count == 0
 
@@ -199,8 +189,7 @@ async def test_accessible_flag_false_disables_filter(chromium_context):
     """
     page = await _page_with_html(
         chromium_context,
-        _row_html(0, "Section 100 Row A — $80.00")
-        + _row_html(1, "Section 200 Row C — $120.00"),
+        _row_html(0, "Section 100 Row A — $80.00") + _row_html(1, "Section 200 Row C — $120.00"),
     )
     strategy = AccessibleStrategy(accessible_seats=False)
     chosen = await strategy.pick(page)
@@ -230,9 +219,7 @@ async def test_accessible_max_price_excludes_pricey_rows(chromium_context):
         assert await _click_count(page, idx) == 0
 
 
-async def test_accessible_empty_quick_picks_returns_none(
-    chromium_context, fixture_url
-):
+async def test_accessible_empty_quick_picks_returns_none(chromium_context, fixture_url):
     """[dom.empty-candidates-none]: with zero rows in the fixture, return None."""
     page = await chromium_context.new_page()
     await page.goto(fixture_url("empty_quick_picks"))

@@ -96,9 +96,7 @@ async def test_desktop_notify_logs_clean_info_line(caplog):
     )
     with caplog.at_level(logging.INFO, logger="ticketmaster-bot"):
         await notifier.notify(event)
-    matches = [
-        rec for rec in caplog.records if "Tickets in cart" in rec.getMessage()
-    ]
+    matches = [rec for rec in caplog.records if "Tickets in cart" in rec.getMessage()]
     assert matches, "expected an info-level record carrying the title"
     assert any(rec.levelno == logging.INFO for rec in matches)
 

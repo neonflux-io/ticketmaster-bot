@@ -5,6 +5,7 @@ Datadome, Akamai). They simply remove the most obvious automation signals so
 the rest of the flow has a fair chance. Treat as defense-in-depth, not a
 silver bullet.
 """
+
 from __future__ import annotations
 
 import logging
@@ -139,11 +140,9 @@ async def apply_stealth(
     if not config.enabled:
         return
 
-    script = (
-        _STEALTH_INIT_SCRIPT
-        .replace("__WEBGL_VENDOR__", _escape_js(config.webgl_vendor))
-        .replace("__WEBGL_RENDERER__", _escape_js(config.webgl_renderer))
-    )
+    script = _STEALTH_INIT_SCRIPT.replace(
+        "__WEBGL_VENDOR__", _escape_js(config.webgl_vendor)
+    ).replace("__WEBGL_RENDERER__", _escape_js(config.webgl_renderer))
     try:
         await context.add_init_script(script)
     except Exception as exc:  # noqa: BLE001

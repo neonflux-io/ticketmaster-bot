@@ -4,6 +4,7 @@ These tests exercise real Python code paths only - no mocks, no fakes.
 Entry-point auto-discovery is exercised by creating a real installable
 distribution in a temp dir and adding it to ``sys.path``.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -195,17 +196,12 @@ def test_entry_point_discovery_loads_real_entry_point(tmp_path, monkeypatch):
     _install_fake_distribution(
         site,
         dist_name="tm_bot_fake_plugin_alpha",
-        entry_points_ini=(
-            "[ticketmaster_bot.test_alpha]\n"
-            "loaded_obj = sys:version\n"
-        ),
+        entry_points_ini=("[ticketmaster_bot.test_alpha]\nloaded_obj = sys:version\n"),
     )
     monkeypatch.syspath_prepend(str(site))
     importlib.invalidate_caches()
 
-    reg: Registry[object] = Registry(
-        "test_alpha", entry_point_group="ticketmaster_bot.test_alpha"
-    )
+    reg: Registry[object] = Registry("test_alpha", entry_point_group="ticketmaster_bot.test_alpha")
     items = reg.all()
     assert "loaded_obj" in items
     assert items["loaded_obj"] is sys.version
@@ -217,17 +213,12 @@ def test_entry_point_discovery_runs_only_once(tmp_path, monkeypatch):
     _install_fake_distribution(
         site,
         dist_name="tm_bot_fake_plugin_beta",
-        entry_points_ini=(
-            "[ticketmaster_bot.test_beta]\n"
-            "from_plugin = sys:version\n"
-        ),
+        entry_points_ini=("[ticketmaster_bot.test_beta]\nfrom_plugin = sys:version\n"),
     )
     monkeypatch.syspath_prepend(str(site))
     importlib.invalidate_caches()
 
-    reg: Registry[object] = Registry(
-        "test_beta", entry_point_group="ticketmaster_bot.test_beta"
-    )
+    reg: Registry[object] = Registry("test_beta", entry_point_group="ticketmaster_bot.test_beta")
     first = reg.all()
     # A subsequent registration of the same name should still raise -
     # entry-point discovery must not run again on the second access.
@@ -251,18 +242,13 @@ def test_local_register_wins_over_entry_point(tmp_path, monkeypatch):
     _install_fake_distribution(
         site,
         dist_name="tm_bot_fake_plugin_gamma",
-        entry_points_ini=(
-            "[ticketmaster_bot.test_gamma]\n"
-            "winner = sys:version\n"
-        ),
+        entry_points_ini=("[ticketmaster_bot.test_gamma]\nwinner = sys:version\n"),
     )
     monkeypatch.syspath_prepend(str(site))
     importlib.invalidate_caches()
 
     sentinel = object()
-    reg: Registry[object] = Registry(
-        "test_gamma", entry_point_group="ticketmaster_bot.test_gamma"
-    )
+    reg: Registry[object] = Registry("test_gamma", entry_point_group="ticketmaster_bot.test_gamma")
     # Pre-register before any get/all - the local registration must not be
     # overwritten when entry-point discovery runs.
     reg.register("winner", sentinel)

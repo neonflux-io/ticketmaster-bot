@@ -7,6 +7,7 @@ the first call to :meth:`get` or :meth:`all` walks
 ``importlib.metadata.entry_points(group=...)`` and registers every advertised
 plugin. Discovery runs at most once per registry instance.
 """
+
 from __future__ import annotations
 
 import logging
@@ -97,8 +98,7 @@ class Registry(Generic[T]):
         except KeyError as exc:
             available = ", ".join(sorted(self._items)) or "<none>"
             raise NotRegistered(
-                f"{self.kind!s} registry has no entry named {name!r} "
-                f"(available: {available})",
+                f"{self.kind!s} registry has no entry named {name!r} (available: {available})",
                 kind=self.kind,
                 name=name,
             ) from exc

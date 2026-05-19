@@ -8,6 +8,7 @@ Supports two file-format modes:
   ``name``, and ``message`` keys (plus an ``exc_info`` field when the
   record carries exception info). Selected via ``config.logging.format``.
 """
+
 from __future__ import annotations
 
 import json
@@ -88,14 +89,10 @@ def setup_logger(
     """
     level_upper = (level or "INFO").upper()
     if level_upper not in _VALID_LEVELS:
-        raise ValueError(
-            f"Unknown log level {level!r}. Must be one of {sorted(_VALID_LEVELS)}"
-        )
+        raise ValueError(f"Unknown log level {level!r}. Must be one of {sorted(_VALID_LEVELS)}")
     format_lower = (format or "rich").lower()
     if format_lower not in _VALID_FORMATS:
-        raise ValueError(
-            f"Unknown log format {format!r}. Must be one of {sorted(_VALID_FORMATS)}"
-        )
+        raise ValueError(f"Unknown log format {format!r}. Must be one of {sorted(_VALID_FORMATS)}")
 
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level_upper))

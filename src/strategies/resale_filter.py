@@ -63,8 +63,7 @@ class ResaleFilterStrategy(SelectionStrategy):
             )
         if not include_resale and not exclude_resale:
             raise ValueError(
-                "ResaleFilterStrategy: must set one of include_resale "
-                "or exclude_resale"
+                "ResaleFilterStrategy: must set one of include_resale or exclude_resale"
             )
         self.inner = inner
         self.include_resale = include_resale

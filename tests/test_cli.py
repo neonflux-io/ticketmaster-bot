@@ -198,9 +198,12 @@ def test_cli_unknown_profile_exits_nonzero(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(tmp_path / "config.yaml"),
-        "--accounts", str(tmp_path / "no-accounts.yaml"),
-        "--profile", "does_not_exist",
+        "--config",
+        str(tmp_path / "config.yaml"),
+        "--accounts",
+        str(tmp_path / "no-accounts.yaml"),
+        "--profile",
+        "does_not_exist",
         "--dry-run",
     )
     assert result.returncode != 0
@@ -243,7 +246,8 @@ def test_cli_headless_and_no_headless_together_argparse_rejects():
 
 def test_cli_events_single_url_overrides_config():
     result = _run_cli(
-        "--events", "https://www.ticketmaster.com/event/FROM-CLI",
+        "--events",
+        "https://www.ticketmaster.com/event/FROM-CLI",
         "--explain",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -254,8 +258,10 @@ def test_cli_events_single_url_overrides_config():
 
 def test_cli_events_repeated_flag_yields_multiple_events():
     result = _run_cli(
-        "--events", "https://www.ticketmaster.com/event/A",
-        "--events", "https://www.ticketmaster.com/event/B",
+        "--events",
+        "https://www.ticketmaster.com/event/A",
+        "--events",
+        "https://www.ticketmaster.com/event/B",
         "--explain",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -269,7 +275,8 @@ def test_cli_events_repeated_flag_yields_multiple_events():
 
 def test_cli_events_comma_separated_value():
     result = _run_cli(
-        "--events", "https://www.ticketmaster.com/event/A,https://www.ticketmaster.com/event/B",
+        "--events",
+        "https://www.ticketmaster.com/event/A,https://www.ticketmaster.com/event/B",
         "--explain",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -289,8 +296,10 @@ def test_cli_events_comma_separated_value():
 def test_cli_parallel_flag_with_dry_run_exits_zero():
     result = _run_cli(
         "--parallel",
-        "--max-parallel", "3",
-        "--stagger", "0.5",
+        "--max-parallel",
+        "3",
+        "--stagger",
+        "0.5",
         "--dry-run",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -332,9 +341,12 @@ def test_cli_account_name_unknown_exits_two(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(tmp_path / "config.yaml"),
-        "--accounts", str(tmp_path / "accounts.yaml"),
-        "--account-name", "no_such_account",
+        "--config",
+        str(tmp_path / "config.yaml"),
+        "--accounts",
+        str(tmp_path / "accounts.yaml"),
+        "--account-name",
+        "no_such_account",
         "--dry-run",
     )
     assert result.returncode == 2
@@ -360,9 +372,12 @@ def test_cli_account_name_known_dry_run_exits_zero(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(tmp_path / "config.yaml"),
-        "--accounts", str(tmp_path / "accounts.yaml"),
-        "--account-name", "primary",
+        "--config",
+        str(tmp_path / "config.yaml"),
+        "--accounts",
+        str(tmp_path / "accounts.yaml"),
+        "--account-name",
+        "primary",
         "--dry-run",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -382,17 +397,25 @@ def test_cli_full_flag_combination_dry_run(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(tmp_path / "config.yaml"),
-        "--accounts", str(tmp_path / "no-accounts.yaml"),
-        "--vendor", "ticketmaster",
-        "--profile", "fast",
-        "--set", "tickets.quantity=4",
-        "--events", "https://www.ticketmaster.com/event/FROM-CLI",
+        "--config",
+        str(tmp_path / "config.yaml"),
+        "--accounts",
+        str(tmp_path / "no-accounts.yaml"),
+        "--vendor",
+        "ticketmaster",
+        "--profile",
+        "fast",
+        "--set",
+        "tickets.quantity=4",
+        "--events",
+        "https://www.ticketmaster.com/event/FROM-CLI",
         "--no-headless",
         "--no-auto-purchase",
         "--parallel",
-        "--max-parallel", "2",
-        "--stagger", "0.25",
+        "--max-parallel",
+        "2",
+        "--stagger",
+        "0.25",
         "--dry-run",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -407,13 +430,20 @@ def test_cli_full_flag_combination_explain(tmp_path):
         """,
     )
     result = _run_cli(
-        "--config", str(tmp_path / "config.yaml"),
-        "--accounts", str(tmp_path / "no-accounts.yaml"),
-        "--vendor", "ticketmaster",
-        "--profile", "fast",
-        "--set", "tickets.quantity=4",
-        "--set", "checkout.auto_purchase=false",
-        "--events", "https://www.ticketmaster.com/event/FROM-CLI",
+        "--config",
+        str(tmp_path / "config.yaml"),
+        "--accounts",
+        str(tmp_path / "no-accounts.yaml"),
+        "--vendor",
+        "ticketmaster",
+        "--profile",
+        "fast",
+        "--set",
+        "tickets.quantity=4",
+        "--set",
+        "checkout.auto_purchase=false",
+        "--events",
+        "https://www.ticketmaster.com/event/FROM-CLI",
         "--explain",
     )
     assert result.returncode == 0, (result.stdout, result.stderr)

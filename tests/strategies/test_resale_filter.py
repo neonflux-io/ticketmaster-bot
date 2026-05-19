@@ -31,14 +31,10 @@ def _click_recorder_script() -> str:
 
 def _row_html(idx: int, text: str, *, resale: bool) -> str:
     extra = '<span data-bdd="resale-tag">Resale</span>' if resale else ""
-    return (
-        f'      <li data-bdd="quick-pick-row" data-idx="{idx}">{text}{extra}</li>'
-    )
+    return f'      <li data-bdd="quick-pick-row" data-idx="{idx}">{text}{extra}</li>'
 
 
-async def _page_with_rows(
-    context: BrowserContext, rows: list[tuple[str, bool]]
-) -> Page:
+async def _page_with_rows(context: BrowserContext, rows: list[tuple[str, bool]]) -> Page:
     items = "\n".join(_row_html(i, text, resale=resale) for i, (text, resale) in enumerate(rows))
     html = (
         '<!doctype html><html><body><main role="main">'
@@ -54,9 +50,9 @@ async def _page_with_rows(
 
 async def _click_count(page: Page, idx: int) -> int:
     return int(
-        await page.locator(
-            f'[data-bdd="quick-pick-row"][data-idx="{idx}"]'
-        ).get_attribute("data-click-count")
+        await page.locator(f'[data-bdd="quick-pick-row"][data-idx="{idx}"]').get_attribute(
+            "data-click-count"
+        )
         or "0"
     )
 

@@ -124,9 +124,7 @@ def parse_set_overrides(items: list[str]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for item in items:
         if "=" not in item:
-            raise ValueError(
-                f"--set expects key.path=value, got {item!r} (no '=' separator)"
-            )
+            raise ValueError(f"--set expects key.path=value, got {item!r} (no '=' separator)")
         key, _, raw_value = item.partition("=")
         key = key.strip()
         if not key:
@@ -163,13 +161,9 @@ def _positive_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"expected a positive integer, got {text!r}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {text!r}") from exc
     if value < 1:
-        raise argparse.ArgumentTypeError(
-            f"must be >= 1, got {value}"
-        )
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
     return value
 
 
@@ -177,13 +171,9 @@ def _non_negative_float(text: str) -> float:
     try:
         value = float(text)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"expected a non-negative number, got {text!r}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"expected a non-negative number, got {text!r}") from exc
     if value < 0:
-        raise argparse.ArgumentTypeError(
-            f"must be >= 0, got {value}"
-        )
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
     return value
 
 

@@ -162,8 +162,7 @@ class MultiplexNotifier(Notifier):
                     channels.append(name)
                 else:
                     log.warning(
-                        "[multiplex] routing for event %r references unknown "
-                        "channel %r; skipping",
+                        "[multiplex] routing for event %r references unknown channel %r; skipping",
                         event_type,
                         name,
                     )

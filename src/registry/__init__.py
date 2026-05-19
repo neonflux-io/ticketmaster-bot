@@ -5,6 +5,7 @@ Each submodule (``strategies``, ``vendors``, ``notifiers``, ``hooks``,
 instance plus convenience ``register``/``get``/``all`` module-level helpers
 that delegate to the singleton.
 """
+
 from __future__ import annotations
 
 from . import hooks, notifiers, selectors, strategies, vendors

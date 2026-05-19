@@ -19,9 +19,9 @@ from src.strategies.vfan_aware import VFanAwareStrategy
 
 async def _click_count(page, idx: int) -> int:
     return int(
-        await page.locator(
-            f'[data-bdd="quick-pick-row"][data-idx="{idx}"]'
-        ).get_attribute("data-click-count")
+        await page.locator(f'[data-bdd="quick-pick-row"][data-idx="{idx}"]').get_attribute(
+            "data-click-count"
+        )
         or "0"
     )
 
@@ -55,9 +55,7 @@ async def test_vfan_aware_fills_code_then_delegates(chromium_context, fixture_ur
     assert submits == ["ABCD"]
 
 
-async def test_vfan_aware_missing_input_warns_and_delegates(
-    chromium_context, fixture_url, caplog
-):
+async def test_vfan_aware_missing_input_warns_and_delegates(chromium_context, fixture_url, caplog):
     """[dom.vfan-aware-no-input]: when the input is absent the strategy
     logs a warning at the bot logger and still runs the inner pick.
     """

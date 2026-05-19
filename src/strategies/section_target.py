@@ -1,4 +1,5 @@
 """Section-target strategy - pick tickets in a specific section/row/price level."""
+
 from __future__ import annotations
 
 import logging
@@ -31,9 +32,7 @@ class SectionTargetStrategy(SelectionStrategy):
             log.warning("No ticket candidates found on page")
             return None
 
-        target_section = (
-            self.target.section.upper() if self.target.section else None
-        )
+        target_section = self.target.section.upper() if self.target.section else None
         row_lo, row_hi = _normalize_row_range(self.target.row_range)
         target_price_level = self.target.price_level_id
 
@@ -51,18 +50,13 @@ class SectionTargetStrategy(SelectionStrategy):
             if target_price_level is not None:
                 if (c.price_level_id or "") != str(target_price_level):
                     continue
-            if (
-                self.max_price is not None
-                and c.price is not None
-                and c.price > self.max_price
-            ):
+            if self.max_price is not None and c.price is not None and c.price > self.max_price:
                 continue
             matches.append(c)
 
         if not matches:
             log.warning(
-                "No candidates matched section=%s row_range=%s price_level_id=%s "
-                "(max_price=%s)",
+                "No candidates matched section=%s row_range=%s price_level_id=%s (max_price=%s)",
                 self.target.section,
                 self.target.row_range,
                 self.target.price_level_id,

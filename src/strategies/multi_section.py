@@ -34,9 +34,7 @@ class MultiSectionStrategy(SelectionStrategy):
         max_price: float | None = None,
     ) -> None:
         if not sections:
-            raise ValueError(
-                "MultiSectionStrategy requires a non-empty sections list"
-            )
+            raise ValueError("MultiSectionStrategy requires a non-empty sections list")
         # Preserve the caller-supplied order; uppercase for comparison.
         self.sections: list[str] = [s.upper() for s in sections]
         self.max_price = max_price
@@ -52,11 +50,7 @@ class MultiSectionStrategy(SelectionStrategy):
             for c in candidates:
                 if not _row_matches_section(c, preference):
                     continue
-                if (
-                    self.max_price is not None
-                    and c.price is not None
-                    and c.price > self.max_price
-                ):
+                if self.max_price is not None and c.price is not None and c.price > self.max_price:
                     continue
                 matches.append(c)
 
@@ -76,15 +70,12 @@ class MultiSectionStrategy(SelectionStrategy):
                 chosen,
             )
             if not await self.click_candidate(chosen, page):
-                log.error(
-                    "Failed to click multi-section candidate after retries"
-                )
+                log.error("Failed to click multi-section candidate after retries")
                 return None
             return chosen
 
         log.warning(
-            "No candidates matched any section in preferences=%s "
-            "(max_price=%s)",
+            "No candidates matched any section in preferences=%s (max_price=%s)",
             self.sections,
             self.max_price,
         )

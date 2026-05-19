@@ -27,14 +27,9 @@ class PriceRangeStrategy(SelectionStrategy):
         min_price: float | None = None,
         max_price: float | None = None,
     ) -> None:
-        if (
-            min_price is not None
-            and max_price is not None
-            and min_price > max_price
-        ):
+        if min_price is not None and max_price is not None and min_price > max_price:
             raise ValueError(
-                f"PriceRangeStrategy: min_price ({min_price}) must be <= "
-                f"max_price ({max_price})"
+                f"PriceRangeStrategy: min_price ({min_price}) must be <= max_price ({max_price})"
             )
         self.min_price = min_price
         self.max_price = max_price

@@ -22,10 +22,7 @@ def _click_recorder_script() -> str:
 
 def _row_html(idx: int, text: str, *, score: str | None = None) -> str:
     score_attr = f' data-quality-score="{score}"' if score is not None else ""
-    return (
-        f'      <li data-bdd="quick-pick-row" data-idx="{idx}"{score_attr}>'
-        f"{text}</li>"
-    )
+    return f'      <li data-bdd="quick-pick-row" data-idx="{idx}"{score_attr}>{text}</li>'
 
 
 async def _page_with_html(context: BrowserContext, rows_html: str) -> Page:
@@ -45,9 +42,9 @@ async def _page_with_html(context: BrowserContext, rows_html: str) -> Page:
 
 async def _click_count(page: Page, idx: int) -> int:
     return int(
-        await page.locator(
-            f'[data-bdd="quick-pick-row"][data-idx="{idx}"]'
-        ).get_attribute("data-click-count")
+        await page.locator(f'[data-bdd="quick-pick-row"][data-idx="{idx}"]').get_attribute(
+            "data-click-count"
+        )
         or "0"
     )
 
@@ -143,8 +140,7 @@ async def test_seat_quality_falls_back_when_no_signals(chromium_context):
     isn't stuck."""
     page = await _page_with_html(
         chromium_context,
-        _row_html(0, "Section 100 Row A — $80.00")
-        + _row_html(1, "Section 200 Row C — $90.00"),
+        _row_html(0, "Section 100 Row A — $80.00") + _row_html(1, "Section 200 Row C — $90.00"),
     )
     strategy = SeatQualityStrategy()
     chosen = await strategy.pick(page)
@@ -180,9 +176,7 @@ async def test_seat_quality_max_price_rejects_all_returns_none(chromium_context)
     assert await _click_count(page, 0) == 0
 
 
-async def test_seat_quality_empty_quick_picks_returns_none(
-    chromium_context, fixture_url
-):
+async def test_seat_quality_empty_quick_picks_returns_none(chromium_context, fixture_url):
     """[dom.empty-candidates-none]: empty fixture → None, no clicks."""
     page = await chromium_context.new_page()
     await page.goto(fixture_url("empty_quick_picks"))

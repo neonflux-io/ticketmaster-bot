@@ -1,13 +1,12 @@
 """Singleton registry for ticket-selection strategies."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from .base import Registry
 
-registry: Registry[Any] = Registry(
-    "strategies", entry_point_group="ticketmaster_bot.strategies"
-)
+registry: Registry[Any] = Registry("strategies", entry_point_group="ticketmaster_bot.strategies")
 
 
 def register(name: str, obj: Any) -> Any:

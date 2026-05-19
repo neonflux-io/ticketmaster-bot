@@ -78,9 +78,7 @@ async def test_stealth_plugins_array_non_empty(
 
     plugin_count = await page.evaluate("() => navigator.plugins.length")
     assert isinstance(plugin_count, int)
-    assert plugin_count >= 1, (
-        f"expected stealth to expose >=1 fake plugin, got {plugin_count}"
-    )
+    assert plugin_count >= 1, f"expected stealth to expose >=1 fake plugin, got {plugin_count}"
 
 
 async def test_stealth_disabled_is_noop(tmp_path: Path) -> None:

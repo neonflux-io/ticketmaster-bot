@@ -90,9 +90,7 @@ async def human_type(
     await locator.focus()
     page = locator.page
     for char in text:
-        delay = _next_delay_ms(
-            mean_ms=mean_ms, std_ms=std_ms, min_ms=min_ms, rng=rng
-        )
+        delay = _next_delay_ms(mean_ms=mean_ms, std_ms=std_ms, min_ms=min_ms, rng=rng)
         # ``page.keyboard.type`` accepts a ``delay`` (in ms) applied
         # *between* keystrokes; calling it once per character with the
         # sampled delay both inserts the char and waits the configured
