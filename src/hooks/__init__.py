@@ -15,5 +15,12 @@ The orchestrator side of this framework lives in
 from __future__ import annotations
 
 from .base import Hook, HookRegistry
+from .screenshot_on_failure import ScreenshotOnFailureHook
+from .slow_down_after_failure import SlowDownAfterFailureHook
 
-__all__ = ["Hook", "HookRegistry"]
+__all__ = [
+    "Hook",
+    "HookRegistry",
+    "ScreenshotOnFailureHook",
+    "SlowDownAfterFailureHook",
+]
