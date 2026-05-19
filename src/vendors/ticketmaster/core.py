@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from playwright.async_api import async_playwright
 
 from ...humanize.profile import apply_profile
+from ...proxy.manager import ProxyManager
 from ...strategies.factory import build_strategy
 from ...utils.notifier import notify
 from ...utils.retry import maybe_human_delay
@@ -36,6 +37,10 @@ class BotRunner:
         self.action_delay_min = float(delays[0])
         self.action_delay_max = float(delays[1])
         self.humanize = bool(config.timing.humanize)
+        # Resolved at __init__ so a bad proxy URL fails early rather
+        # than after we've spawned a Chromium child. ``ProxyManager``
+        # construction validates URLs and the policy name.
+        self.proxy_manager = ProxyManager(config.proxy)
 
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
@@ -77,6 +82,21 @@ class BotRunner:
         is_mobile = bool(profile_overrides.get("is_mobile", False))
         has_touch = bool(profile_overrides.get("has_touch", False))
 
+        # Resolve the proxy kwarg for this account before entering the
+        # async context. The manager returns ``None`` when no proxy is
+        # configured, in which case the kwarg is omitted entirely (rather
+        # than passed as ``proxy=None``) because Playwright's typed
+        # bindings reject ``None`` for that field on some versions.
+        proxy_kwargs = self.proxy_manager.resolve(
+            self.account.name if self.account else None
+        )
+        if proxy_kwargs is not None:
+            log.info(
+                "Using proxy %s for account %s",
+                proxy_kwargs.get("server"),
+                self.account.name if self.account else "<no-account>",
+            )
+
         async with async_playwright() as p:
             log.info(
                 "Launching browser (headless=%s, profile=%s)",
@@ -85,22 +105,25 @@ class BotRunner:
             )
             # --disable-blink-features=AutomationControlled removes one
             # automation tell. apply_stealth() handles the others.
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=str(user_data_dir),
-                headless=cfg.browser.headless,
-                slow_mo=cfg.browser.slow_mo_ms,
-                locale=cfg.browser.locale,
-                timezone_id=cfg.browser.timezone,
-                viewport=resolved_viewport,
-                user_agent=resolved_user_agent,
-                is_mobile=is_mobile,
-                has_touch=has_touch,
-                args=[
+            launch_kwargs: dict[str, Any] = {
+                "user_data_dir": str(user_data_dir),
+                "headless": cfg.browser.headless,
+                "slow_mo": cfg.browser.slow_mo_ms,
+                "locale": cfg.browser.locale,
+                "timezone_id": cfg.browser.timezone,
+                "viewport": resolved_viewport,
+                "user_agent": resolved_user_agent,
+                "is_mobile": is_mobile,
+                "has_touch": has_touch,
+                "args": [
                     "--disable-blink-features=AutomationControlled",
                     "--no-default-browser-check",
                     "--disable-features=AutomationControlled",
                 ],
-            )
+            }
+            if proxy_kwargs is not None:
+                launch_kwargs["proxy"] = proxy_kwargs
+            context = await p.chromium.launch_persistent_context(**launch_kwargs)
             await apply_stealth(context, stealth_cfg)
             try:
                 return await asyncio.wait_for(

@@ -120,3 +120,19 @@ logging:
 notifications:
   desktop: true
   sound: true
+
+# Per-account proxy assignment. Disabled by default; set ``enabled: true``
+# and populate ``urls`` to route Playwright's ``launch_persistent_context``
+# through HTTP / HTTPS / SOCKS proxies.
+#
+# ``policy: sticky`` deterministically maps each account name to the same
+# proxy across runs. ``policy: round_robin`` rotates through ``urls`` on
+# every account, useful when running the parallel coordinator with N
+# accounts and N proxies.
+#
+# Each entry is a full proxy URL; embedded credentials are split out into
+# Playwright's separate username/password fields automatically.
+proxy:
+  enabled: false
+  policy: "sticky"          # sticky | round_robin
+  urls: []                  # e.g. ["http://user:pass@proxy.example.com:8080"]

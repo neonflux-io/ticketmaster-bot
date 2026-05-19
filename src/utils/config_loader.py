@@ -263,6 +263,33 @@ class AccountConfig:
 
 
 @dataclass
+class ProxyConfig:
+    """Per-account proxy plumbing for :class:`src.proxy.ProxyManager`.
+
+    ``urls`` is the raw, full proxy URL list (each entry is a
+    ``scheme://[user[:password]@]host:port`` string). Credentials are
+    expressed inline in the URL — the manager parses them out into
+    Playwright's separate ``username`` / ``password`` fields at
+    resolve-time so config stays compact and consistent with proxy
+    providers that hand out single-line connection strings.
+
+    ``policy`` controls how URLs are mapped to accounts:
+
+    * ``sticky`` (default) — deterministic per-account assignment.
+    * ``round_robin`` — round-robin across the proxy list at every
+      ``resolve()`` call.
+
+    ``enabled`` is a master switch. Even with URLs in the list, a
+    ``false`` flag forces :meth:`ProxyManager.resolve` to return
+    ``None`` so the runner falls back to direct egress.
+    """
+
+    enabled: bool = False
+    policy: str = "sticky"
+    urls: list[str] = field(default_factory=list)
+
+
+@dataclass
 class BotConfig:
     events: list[EventConfig]
     tickets: TicketsConfig
@@ -272,6 +299,7 @@ class BotConfig:
     notifications: NotificationsConfig
     browser: BrowserConfig
     accounts: list[AccountConfig]
+    proxy: ProxyConfig = field(default_factory=ProxyConfig)
 
     @property
     def event(self) -> EventConfig:
@@ -836,6 +864,46 @@ def _parse_notifications(raw: dict[str, Any]) -> NotificationsConfig:
     )
 
 
+def _parse_proxy(raw: dict[str, Any]) -> ProxyConfig:
+    """Parse the top-level ``proxy:`` block into :class:`ProxyConfig`.
+
+    The shape mirrors the rest of the config: a master ``enabled``
+    flag, an explicit ``policy`` (``sticky`` or ``round_robin``), and a
+    flat list of proxy URLs. URL syntax validation happens later inside
+    :class:`src.proxy.ProxyManager` so the loader can keep its
+    dependency on the proxy package zero (the proxy module imports
+    :class:`ProxyConfig` from here, not the other way around).
+    """
+    proxy_raw = raw.get("proxy", {}) or {}
+    if not isinstance(proxy_raw, dict):
+        raise ValueError(
+            f"proxy must be a mapping with keys enabled/policy/urls, "
+            f"got {type(proxy_raw).__name__}"
+        )
+    urls_raw = proxy_raw.get("urls", [])
+    if urls_raw is None:
+        urls_raw = []
+    if not isinstance(urls_raw, list) or not all(isinstance(u, str) for u in urls_raw):
+        raise ValueError("proxy.urls must be a list of strings")
+    urls: list[str] = [u.strip() for u in urls_raw if u and u.strip()]
+    policy = str(proxy_raw.get("policy", "sticky"))
+    # The set of valid policies is owned by src.proxy.manager. Importing
+    # it here at parse-time would create an unnecessary import cycle
+    # between config_loader and the proxy package; instead, we validate
+    # against the same literal set used in the manager and let the
+    # manager re-validate at construction time as a belt-and-braces
+    # check.
+    if policy not in {"sticky", "round_robin"}:
+        raise ValueError(
+            f"proxy.policy must be 'sticky' or 'round_robin', got {policy!r}"
+        )
+    return ProxyConfig(
+        enabled=bool(proxy_raw.get("enabled", False)),
+        policy=policy,
+        urls=urls,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public API.
 # ---------------------------------------------------------------------------
@@ -914,6 +982,7 @@ def load_config(
     timing = _parse_timing(merged)
     logging_cfg = _parse_logging(merged)
     notifications = _parse_notifications(merged)
+    proxy = _parse_proxy(merged)
     accounts = _load_accounts(accounts_path)
 
     return BotConfig(
@@ -925,6 +994,7 @@ def load_config(
         notifications=notifications,
         browser=browser,
         accounts=accounts,
+        proxy=proxy,
     )
 
 
@@ -990,6 +1060,7 @@ __all__ = [
     "NotificationsConfig",
     "PaymentConfig",
     "PriceRangeConfig",
+    "ProxyConfig",
     "ResaleFilterConfig",
     "SectionTargetConfig",
     "StealthConfig",
