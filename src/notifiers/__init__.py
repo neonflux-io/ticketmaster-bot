@@ -12,6 +12,7 @@ from __future__ import annotations
 from ..registry import notifiers as _notifier_registry
 from .base import Notifier, NotifierError, NotifyEvent
 from .desktop import DesktopNotifier
+from .webhook import WebhookNotifier
 
 
 def _register_default_notifiers() -> None:
@@ -23,6 +24,7 @@ def _register_default_notifiers() -> None:
     """
     defaults: dict[str, type[Notifier]] = {
         "desktop": DesktopNotifier,
+        "webhook": WebhookNotifier,
     }
     for name, cls in defaults.items():
         if name in _notifier_registry.registry:
@@ -38,4 +40,5 @@ __all__ = [
     "Notifier",
     "NotifierError",
     "NotifyEvent",
+    "WebhookNotifier",
 ]
