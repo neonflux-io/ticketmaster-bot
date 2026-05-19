@@ -30,6 +30,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+from ...utils import purchase_guard
 from ...utils.retry import random_human_delay
 from . import auth as sg_auth
 from . import cart as sg_cart
@@ -440,10 +441,25 @@ async def run_checkout(
     try:
         btn = sg_selectors.locator(page, "checkout_place_order_button")
         await btn.wait_for(state="visible", timeout=8000)
-        log.info("Clicking SG Place Order")
-        await btn.click()
     except Exception as exc:  # noqa: BLE001
         log.error("Could not find SG 'Place Order' button: %s", exc)
+        return False
+
+    # Mission-wide kill switch: refuses to click Place Order unless the
+    # operator has explicitly set the override env var. Treat as a soft
+    # failure so the runner doesn't crash — the SG cart/checkout review
+    # state is preserved for manual completion.
+    try:
+        purchase_guard.gate("place_order")
+    except purchase_guard.PurchaseBlocked as exc:
+        log.error("SG Place Order blocked by purchase guard: %s", exc)
+        return False
+
+    log.info("Clicking SG Place Order")
+    try:
+        await btn.click()
+    except Exception as exc:  # noqa: BLE001
+        log.error("SG Place Order click failed: %s", exc)
         return False
 
     try:

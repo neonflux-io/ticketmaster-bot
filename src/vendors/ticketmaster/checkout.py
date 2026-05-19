@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from ...registry import selectors as selector_registry
 from ...registry.selectors import locator, locator_template, selector_for_template
 from ...strategies.base import _extract_price, _extract_sections
+from ...utils import purchase_guard
 from ...utils.retry import random_human_delay
 from . import auth as auth_module
 
@@ -221,10 +222,25 @@ async def run_checkout(
     try:
         btn = locator(page, "place_order_button")
         await btn.wait_for(state="visible", timeout=8000)
-        log.info("Clicking Place Order")
-        await btn.click()
     except Exception as exc:  # noqa: BLE001
         log.error("Could not find a 'Place Order' button: %s", exc)
+        return False
+
+    # Mission-wide kill switch: refuses to click Place Order unless the
+    # operator has explicitly set the override env var. Treat as a soft
+    # failure so the runner doesn't crash — the cart/checkout review
+    # state is preserved for manual completion.
+    try:
+        purchase_guard.gate("place_order")
+    except purchase_guard.PurchaseBlocked as exc:
+        log.error("Place Order blocked by purchase guard: %s", exc)
+        return False
+
+    log.info("Clicking Place Order")
+    try:
+        await btn.click()
+    except Exception as exc:  # noqa: BLE001
+        log.error("Place Order click failed: %s", exc)
         return False
 
     try:

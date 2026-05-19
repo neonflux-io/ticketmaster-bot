@@ -600,6 +600,8 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
             #    auto-clicked by this recon script. We therefore dump
             #    the same DOM to ``checkout.html`` so downstream F7.4
             #    fixtures see both filenames, but we do not navigate.
+            #    GUARD: never click — guard-railed against real purchases
+            #    (see src/utils/purchase_guard.py).
             vlog("STEP 7 SG cart+checkout share one page — re-dumping DOM to checkout.html")
             await _capture_dom(
                 page,

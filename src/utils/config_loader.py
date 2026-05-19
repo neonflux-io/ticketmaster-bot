@@ -1017,6 +1017,22 @@ def load_config(
     proxy = _parse_proxy(merged)
     accounts = _load_accounts(accounts_path)
 
+    if checkout.auto_purchase:
+        # Imported lazily so the loader doesn't pay the import cost on every
+        # call when the override isn't relevant.
+        from . import purchase_guard
+
+        if not purchase_guard.purchase_allowed():
+            import logging as _logging
+
+            _logging.getLogger("ticketmaster-bot").warning(
+                "auto_purchase=true is configured but the PurchaseGuard env "
+                "override is not set; place-order clicks will still be blocked. "
+                "Set %s=%s to enable real purchases.",
+                purchase_guard.PURCHASE_OVERRIDE_ENV,
+                purchase_guard.PURCHASE_OVERRIDE_VALUE,
+            )
+
     return BotConfig(
         events=events,
         tickets=tickets,
