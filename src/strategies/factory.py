@@ -22,11 +22,19 @@ from .interactive_seatmap import InteractiveSeatmapStrategy
 from .multi_section import MultiSectionStrategy
 from .price_range import PriceRangeStrategy
 from .random_pick import RandomPickStrategy
+from .resale_filter import ResaleFilterStrategy
 from .seat_quality import SeatQualityStrategy
 from .section_target import SectionTargetStrategy
+from .vfan_aware import VFanAwareStrategy
 
 if TYPE_CHECKING:
-    from ..utils.config_loader import TicketsConfig
+    from ..utils.config_loader import (
+        InnerStrategyConfig,
+        MultiSectionConfig,
+        PriceRangeConfig,
+        SectionTargetConfig,
+        TicketsConfig,
+    )
 
 
 # --- registry wiring -------------------------------------------------------
@@ -49,6 +57,8 @@ def _register_default_strategies() -> None:
         "random_pick": RandomPickStrategy,
         "composite": CompositeStrategy,
         "interactive_seatmap": InteractiveSeatmapStrategy,
+        "resale_filter": ResaleFilterStrategy,
+        "vfan_aware": VFanAwareStrategy,
     }
     for name, cls in defaults.items():
         if name in _strategy_registry.registry:
@@ -60,27 +70,83 @@ _register_default_strategies()
 
 
 def build_strategy(cfg: TicketsConfig) -> SelectionStrategy:
-    if cfg.strategy == "cheapest":
-        return CheapestStrategy(max_price=cfg.max_price)
-    if cfg.strategy == "best_available":
-        return BestAvailableStrategy(max_price=cfg.max_price)
-    if cfg.strategy == "section_target":
-        return SectionTargetStrategy(target=cfg.section_target, max_price=cfg.max_price)
-    if cfg.strategy == "price_range":
+    if cfg.strategy == "resale_filter":
+        if cfg.inner_strategy is None:
+            raise ValueError(
+                "tickets.strategy='resale_filter' requires "
+                "tickets.inner_strategy to be set"
+            )
+        return ResaleFilterStrategy(
+            inner=_build_inner_strategy(cfg.inner_strategy),
+            include_resale=cfg.resale_filter.include_resale,
+            exclude_resale=cfg.resale_filter.exclude_resale,
+        )
+    if cfg.strategy == "vfan_aware":
+        if cfg.inner_strategy is None:
+            raise ValueError(
+                "tickets.strategy='vfan_aware' requires "
+                "tickets.inner_strategy to be set"
+            )
+        if not cfg.vfan_aware.code:
+            raise ValueError(
+                "tickets.strategy='vfan_aware' requires tickets.vfan_aware.code"
+            )
+        return VFanAwareStrategy(
+            inner=_build_inner_strategy(cfg.inner_strategy),
+            code=cfg.vfan_aware.code,
+        )
+    return _build_leaf_strategy(
+        strategy=cfg.strategy,
+        section_target=cfg.section_target,
+        price_range=cfg.price_range,
+        multi_section=cfg.multi_section,
+        max_price=cfg.max_price,
+        accessible_seats=cfg.accessible_seats,
+    )
+
+
+def _build_inner_strategy(cfg: InnerStrategyConfig) -> SelectionStrategy:
+    """Build the leaf strategy described by a ``tickets.inner_strategy:`` block."""
+    return _build_leaf_strategy(
+        strategy=cfg.strategy,
+        section_target=cfg.section_target,
+        price_range=cfg.price_range,
+        multi_section=cfg.multi_section,
+        max_price=cfg.max_price,
+        accessible_seats=cfg.accessible_seats,
+    )
+
+
+def _build_leaf_strategy(
+    *,
+    strategy: str,
+    section_target: SectionTargetConfig,
+    price_range: PriceRangeConfig,
+    multi_section: MultiSectionConfig,
+    max_price: float | None,
+    accessible_seats: bool,
+) -> SelectionStrategy:
+    if strategy == "cheapest":
+        return CheapestStrategy(max_price=max_price)
+    if strategy == "best_available":
+        return BestAvailableStrategy(max_price=max_price)
+    if strategy == "section_target":
+        return SectionTargetStrategy(target=section_target, max_price=max_price)
+    if strategy == "price_range":
         return PriceRangeStrategy(
-            min_price=cfg.price_range.min_price,
-            max_price=cfg.price_range.max_price,
+            min_price=price_range.min_price,
+            max_price=price_range.max_price,
         )
-    if cfg.strategy == "multi_section":
+    if strategy == "multi_section":
         return MultiSectionStrategy(
-            sections=list(cfg.multi_section.sections),
-            max_price=cfg.max_price,
+            sections=list(multi_section.sections),
+            max_price=max_price,
         )
-    if cfg.strategy == "accessible":
+    if strategy == "accessible":
         return AccessibleStrategy(
-            max_price=cfg.max_price,
-            accessible_seats=cfg.accessible_seats,
+            max_price=max_price,
+            accessible_seats=accessible_seats,
         )
-    if cfg.strategy == "seat_quality":
-        return SeatQualityStrategy(max_price=cfg.max_price)
-    raise ValueError(f"Unknown strategy: {cfg.strategy!r}")
+    if strategy == "seat_quality":
+        return SeatQualityStrategy(max_price=max_price)
+    raise ValueError(f"Unknown strategy: {strategy!r}")

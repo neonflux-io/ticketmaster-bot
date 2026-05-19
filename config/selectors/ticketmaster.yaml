@@ -42,6 +42,30 @@ seatmap_svg:
   - "svg[data-bdd='seatmap-svg']"
   - "[data-bdd='seatmap'] svg"
 
+# Resale-tag marker. ``ResaleFilterStrategy`` looks for this either on a
+# quick-pick row itself or on any descendant; the row qualifies as a
+# resale listing when either match succeeds.
+resale_tag:
+  - "[data-bdd='resale-tag']"
+  - "[data-bdd='resale-listing']"
+  - "[aria-label*='resale' i]"
+
+# Verified-fan code entry. ``VFanAwareStrategy`` fills the input with the
+# user-supplied code and clicks the submit button before delegating to
+# the inner strategy. When the input is absent the strategy logs a
+# warning and still runs the inner pick.
+vfan_code_input:
+  - "[data-bdd='vfan-code']"
+  - "input[name='vfan-code']"
+  - "input[placeholder*='verified fan' i]"
+  - "input[aria-label*='verified fan' i]"
+
+vfan_submit_button:
+  - "[data-bdd='vfan-submit']"
+  - "button[type='submit'][data-bdd*='vfan']"
+  - "button:has-text('Submit Code')"
+  - "button:has-text('Verify')"
+
 quick_picks_list:
   - "[data-bdd='quick-picks-list']"
 

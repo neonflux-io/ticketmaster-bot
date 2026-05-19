@@ -454,3 +454,223 @@ def test_strategy_registry_contains_new_strategies():
 
     assert strategy_registry.get("price_range") is PriceRangeStrategy
     assert strategy_registry.get("multi_section") is MultiSectionStrategy
+
+
+# --- wrapper strategies (resale_filter, vfan_aware) ----------------------
+
+
+def test_load_config_resale_filter_with_inner_strategy(tmp_path):
+    """``tickets.strategy='resale_filter'`` loads with a nested
+    ``inner_strategy`` and a ``resale_filter`` block."""
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "resale_filter"
+          resale_filter:
+            exclude_resale: true
+          inner_strategy:
+            strategy: "cheapest"
+            max_price: 250
+        """,
+    )
+    cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+    assert cfg.tickets.strategy == "resale_filter"
+    assert cfg.tickets.resale_filter.exclude_resale is True
+    assert cfg.tickets.resale_filter.include_resale is False
+    assert cfg.tickets.inner_strategy is not None
+    assert cfg.tickets.inner_strategy.strategy == "cheapest"
+    assert cfg.tickets.inner_strategy.max_price == 250.0
+
+
+def test_load_config_resale_filter_requires_inner_strategy(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "resale_filter"
+          resale_filter:
+            exclude_resale: true
+        """,
+    )
+    with pytest.raises(ValueError, match="inner_strategy"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_resale_filter_requires_flag(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "resale_filter"
+          inner_strategy:
+            strategy: "cheapest"
+        """,
+    )
+    with pytest.raises(ValueError, match="exclude_resale"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_resale_filter_rejects_both_flags(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "resale_filter"
+          resale_filter:
+            include_resale: true
+            exclude_resale: true
+          inner_strategy:
+            strategy: "cheapest"
+        """,
+    )
+    with pytest.raises(ValueError, match="both"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_vfan_aware_with_inner_strategy(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "vfan_aware"
+          vfan_aware:
+            code: "ABCD-1234"
+          inner_strategy:
+            strategy: "price_range"
+            price_range:
+              min_price: 50
+              max_price: 200
+        """,
+    )
+    cfg = load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+    assert cfg.tickets.strategy == "vfan_aware"
+    assert cfg.tickets.vfan_aware.code == "ABCD-1234"
+    assert cfg.tickets.inner_strategy is not None
+    assert cfg.tickets.inner_strategy.strategy == "price_range"
+    assert cfg.tickets.inner_strategy.price_range.min_price == 50.0
+    assert cfg.tickets.inner_strategy.price_range.max_price == 200.0
+
+
+def test_load_config_vfan_aware_requires_code(tmp_path):
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "vfan_aware"
+          inner_strategy:
+            strategy: "cheapest"
+        """,
+    )
+    with pytest.raises(ValueError, match="vfan_aware.code"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_load_config_inner_strategy_rejects_nested_wrapper(tmp_path):
+    """Wrapping a wrapper is not supported — surface the misconfig."""
+    _write(
+        tmp_path / "config.yaml",
+        """
+        event:
+          url: "https://www.ticketmaster.com/event/X"
+        tickets:
+          strategy: "resale_filter"
+          resale_filter:
+            exclude_resale: true
+          inner_strategy:
+            strategy: "vfan_aware"
+            vfan_aware:
+              code: "ABCD"
+            inner_strategy:
+              strategy: "cheapest"
+        """,
+    )
+    with pytest.raises(ValueError, match="wrapper"):
+        load_config(tmp_path / "config.yaml", tmp_path / "missing.yaml")
+
+
+def test_build_strategy_resale_filter_with_cheapest_inner():
+    from src.strategies.cheapest import CheapestStrategy
+    from src.strategies.factory import build_strategy
+    from src.strategies.resale_filter import ResaleFilterStrategy
+    from src.utils.config_loader import (
+        InnerStrategyConfig,
+        MultiSectionConfig,
+        PriceRangeConfig,
+        ResaleFilterConfig,
+        SectionTargetConfig,
+        TicketsConfig,
+    )
+
+    cfg = TicketsConfig(
+        strategy="resale_filter",
+        section_target=SectionTargetConfig(),
+        price_range=PriceRangeConfig(),
+        multi_section=MultiSectionConfig(),
+        resale_filter=ResaleFilterConfig(exclude_resale=True),
+        inner_strategy=InnerStrategyConfig(
+            strategy="cheapest",
+            max_price=250.0,
+        ),
+    )
+    strat = build_strategy(cfg)
+    assert isinstance(strat, ResaleFilterStrategy)
+    assert strat.exclude_resale is True
+    assert strat.include_resale is False
+    assert isinstance(strat.inner, CheapestStrategy)
+    assert strat.inner.max_price == 250.0
+
+
+def test_build_strategy_vfan_aware_with_price_range_inner():
+    from src.strategies.factory import build_strategy
+    from src.strategies.price_range import PriceRangeStrategy
+    from src.strategies.vfan_aware import VFanAwareStrategy
+    from src.utils.config_loader import (
+        InnerStrategyConfig,
+        MultiSectionConfig,
+        PriceRangeConfig,
+        SectionTargetConfig,
+        TicketsConfig,
+        VFanAwareConfig,
+    )
+
+    cfg = TicketsConfig(
+        strategy="vfan_aware",
+        section_target=SectionTargetConfig(),
+        price_range=PriceRangeConfig(),
+        multi_section=MultiSectionConfig(),
+        vfan_aware=VFanAwareConfig(code="ABCD-1234"),
+        inner_strategy=InnerStrategyConfig(
+            strategy="price_range",
+            price_range=PriceRangeConfig(min_price=50.0, max_price=200.0),
+        ),
+    )
+    strat = build_strategy(cfg)
+    assert isinstance(strat, VFanAwareStrategy)
+    assert strat.code == "ABCD-1234"
+    assert isinstance(strat.inner, PriceRangeStrategy)
+    assert strat.inner.min_price == 50.0
+    assert strat.inner.max_price == 200.0
+
+
+def test_strategy_registry_contains_resale_filter_and_vfan_aware():
+    """The two new wrapper strategies must be in the singleton registry."""
+    import src.strategies.factory  # noqa: F401
+    from src.registry import strategies as strategy_registry
+    from src.strategies.resale_filter import ResaleFilterStrategy
+    from src.strategies.vfan_aware import VFanAwareStrategy
+
+    assert strategy_registry.get("resale_filter") is ResaleFilterStrategy
+    assert strategy_registry.get("vfan_aware") is VFanAwareStrategy

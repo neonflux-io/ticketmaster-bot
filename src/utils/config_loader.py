@@ -73,12 +73,57 @@ class MultiSectionConfig:
 
 
 @dataclass
+class ResaleFilterConfig:
+    """Tuning for the ``resale_filter`` wrapper strategy.
+
+    Exactly one of ``include_resale`` / ``exclude_resale`` must be true
+    when ``tickets.strategy = 'resale_filter'``; setting both (or
+    neither) is a configuration mistake and rejected at load time.
+    """
+
+    include_resale: bool = False
+    exclude_resale: bool = False
+
+
+@dataclass
+class VFanAwareConfig:
+    """Tuning for the ``vfan_aware`` wrapper strategy."""
+
+    code: str | None = None
+
+
+@dataclass
+class InnerStrategyConfig:
+    """Nested strategy definition used by wrapper strategies.
+
+    Wrapper strategies (``resale_filter``, ``vfan_aware``) need a way to
+    declare the strategy they delegate to. ``tickets.inner_strategy:`` is
+    that nested block; it mirrors the top-level ticket-strategy shape so
+    every wrappable strategy can be expressed without bespoke YAML keys.
+
+    Only the ``strategy`` key is required; the other fields are reused
+    only when the chosen inner strategy needs them (price_range needs
+    ``price_range``, multi_section needs ``multi_section``, etc.).
+    """
+
+    strategy: str = "cheapest"
+    section_target: SectionTargetConfig = field(default_factory=SectionTargetConfig)
+    price_range: PriceRangeConfig = field(default_factory=PriceRangeConfig)
+    multi_section: MultiSectionConfig = field(default_factory=MultiSectionConfig)
+    max_price: float | None = None
+    accessible_seats: bool = False
+
+
+@dataclass
 class TicketsConfig:
     quantity: int = 2
     strategy: str = "cheapest"
     section_target: SectionTargetConfig = field(default_factory=SectionTargetConfig)
     price_range: PriceRangeConfig = field(default_factory=PriceRangeConfig)
     multi_section: MultiSectionConfig = field(default_factory=MultiSectionConfig)
+    resale_filter: ResaleFilterConfig = field(default_factory=ResaleFilterConfig)
+    vfan_aware: VFanAwareConfig = field(default_factory=VFanAwareConfig)
+    inner_strategy: InnerStrategyConfig | None = None
     max_price: float | None = None
     accessible_seats: bool = False
 
@@ -393,66 +438,8 @@ def _parse_events(raw: dict[str, Any], browser_tz: str) -> list[EventConfig]:
     return parsed
 
 
-def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
-    tickets_raw = raw.get("tickets", {}) or {}
-    section_target_raw = tickets_raw.get("section_target", {}) or {}
-    row_range_raw = section_target_raw.get("row_range")
-    if row_range_raw is not None:
-        if (
-            not isinstance(row_range_raw, list)
-            or len(row_range_raw) != 2
-            or not all(isinstance(r, str) for r in row_range_raw)
-        ):
-            raise ValueError(
-                "tickets.section_target.row_range must be [low, high] strings"
-            )
-    price_range_raw = tickets_raw.get("price_range", {}) or {}
-    if not isinstance(price_range_raw, dict):
-        raise ValueError(
-            "tickets.price_range must be a mapping with min_price/max_price"
-        )
-    price_range = PriceRangeConfig(
-        min_price=_coerce_optional_float(
-            price_range_raw.get("min_price"), "tickets.price_range.min_price"
-        ),
-        max_price=_coerce_optional_float(
-            price_range_raw.get("max_price"), "tickets.price_range.max_price"
-        ),
-    )
-
-    multi_section_raw = tickets_raw.get("multi_section", {}) or {}
-    if not isinstance(multi_section_raw, dict):
-        raise ValueError(
-            "tickets.multi_section must be a mapping with a sections list"
-        )
-    sections_raw = multi_section_raw.get("sections")
-    if sections_raw is None:
-        sections_list: list[str] = []
-    else:
-        if not isinstance(sections_raw, list) or not all(
-            isinstance(s, str) and s.strip() for s in sections_raw
-        ):
-            raise ValueError(
-                "tickets.multi_section.sections must be a list of non-empty strings"
-            )
-        sections_list = [s.strip() for s in sections_raw]
-    multi_section = MultiSectionConfig(sections=sections_list)
-
-    tickets = TicketsConfig(
-        quantity=int(tickets_raw.get("quantity", 2)),
-        strategy=tickets_raw.get("strategy", "cheapest"),
-        section_target=SectionTargetConfig(
-            section=section_target_raw.get("section"),
-            row_range=row_range_raw,
-            price_level_id=section_target_raw.get("price_level_id"),
-        ),
-        price_range=price_range,
-        multi_section=multi_section,
-        max_price=_coerce_optional_float(tickets_raw.get("max_price"), "tickets.max_price"),
-        accessible_seats=bool(tickets_raw.get("accessible_seats", False)),
-    )
-
-    valid_strategies = {
+_LEAF_STRATEGIES: frozenset[str] = frozenset(
+    {
         "cheapest",
         "best_available",
         "section_target",
@@ -461,36 +448,234 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
         "accessible",
         "seat_quality",
     }
-    if tickets.strategy not in valid_strategies:
-        raise ValueError(
-            f"Invalid tickets.strategy: {tickets.strategy!r}. "
-            f"Must be one of: {', '.join(sorted(valid_strategies))}"
-        )
+)
+_WRAPPER_STRATEGIES: frozenset[str] = frozenset({"resale_filter", "vfan_aware"})
+_VALID_STRATEGIES: frozenset[str] = _LEAF_STRATEGIES | _WRAPPER_STRATEGIES
 
-    if (
-        tickets.strategy == "price_range"
-        and tickets.price_range.min_price is None
-        and tickets.price_range.max_price is None
+
+def _parse_section_target(raw: dict[str, Any], prefix: str) -> SectionTargetConfig:
+    section_target_raw = raw.get("section_target", {}) or {}
+    row_range_raw = section_target_raw.get("row_range")
+    if row_range_raw is not None:
+        if (
+            not isinstance(row_range_raw, list)
+            or len(row_range_raw) != 2
+            or not all(isinstance(r, str) for r in row_range_raw)
+        ):
+            raise ValueError(
+                f"{prefix}.section_target.row_range must be [low, high] strings"
+            )
+    return SectionTargetConfig(
+        section=section_target_raw.get("section"),
+        row_range=row_range_raw,
+        price_level_id=section_target_raw.get("price_level_id"),
+    )
+
+
+def _parse_price_range(raw: dict[str, Any], prefix: str) -> PriceRangeConfig:
+    price_range_raw = raw.get("price_range", {}) or {}
+    if not isinstance(price_range_raw, dict):
+        raise ValueError(
+            f"{prefix}.price_range must be a mapping with min_price/max_price"
+        )
+    return PriceRangeConfig(
+        min_price=_coerce_optional_float(
+            price_range_raw.get("min_price"), f"{prefix}.price_range.min_price"
+        ),
+        max_price=_coerce_optional_float(
+            price_range_raw.get("max_price"), f"{prefix}.price_range.max_price"
+        ),
+    )
+
+
+def _parse_multi_section(raw: dict[str, Any], prefix: str) -> MultiSectionConfig:
+    multi_section_raw = raw.get("multi_section", {}) or {}
+    if not isinstance(multi_section_raw, dict):
+        raise ValueError(
+            f"{prefix}.multi_section must be a mapping with a sections list"
+        )
+    sections_raw = multi_section_raw.get("sections")
+    if sections_raw is None:
+        return MultiSectionConfig(sections=[])
+    if not isinstance(sections_raw, list) or not all(
+        isinstance(s, str) and s.strip() for s in sections_raw
     ):
         raise ValueError(
-            "tickets.strategy='price_range' requires at least one of "
-            "tickets.price_range.min_price or tickets.price_range.max_price"
+            f"{prefix}.multi_section.sections must be a list of non-empty strings"
         )
-    if (
-        tickets.strategy == "price_range"
-        and tickets.price_range.min_price is not None
-        and tickets.price_range.max_price is not None
-        and tickets.price_range.min_price > tickets.price_range.max_price
-    ):
+    return MultiSectionConfig(sections=[s.strip() for s in sections_raw])
+
+
+def _validate_strategy_constraints(
+    *,
+    strategy: str,
+    price_range: PriceRangeConfig,
+    multi_section: MultiSectionConfig,
+    prefix: str,
+) -> None:
+    """Apply the per-leaf-strategy required-field validation."""
+    if strategy not in _VALID_STRATEGIES:
         raise ValueError(
-            "tickets.price_range.min_price must be <= tickets.price_range.max_price"
+            f"Invalid {prefix}.strategy: {strategy!r}. "
+            f"Must be one of: {', '.join(sorted(_VALID_STRATEGIES))}"
+        )
+    if strategy == "price_range":
+        if price_range.min_price is None and price_range.max_price is None:
+            raise ValueError(
+                f"{prefix}.strategy='price_range' requires at least one of "
+                f"{prefix}.price_range.min_price or {prefix}.price_range.max_price"
+            )
+        if (
+            price_range.min_price is not None
+            and price_range.max_price is not None
+            and price_range.min_price > price_range.max_price
+        ):
+            raise ValueError(
+                f"{prefix}.price_range.min_price must be <= {prefix}.price_range.max_price"
+            )
+    if strategy == "multi_section" and not multi_section.sections:
+        raise ValueError(
+            f"{prefix}.strategy='multi_section' requires "
+            f"{prefix}.multi_section.sections to be a non-empty list"
         )
 
-    if tickets.strategy == "multi_section" and not tickets.multi_section.sections:
+
+def _parse_inner_strategy(
+    raw: dict[str, Any] | None, prefix: str
+) -> InnerStrategyConfig:
+    """Parse the nested ``tickets.inner_strategy:`` block.
+
+    Wrapper strategies (``resale_filter``, ``vfan_aware``) must be told
+    which inner strategy to delegate to; the same field shape used by
+    ``tickets:`` itself is accepted here so any leaf strategy can be
+    wrapped without inventing new schema keys.
+    """
+    if raw is None:
         raise ValueError(
-            "tickets.strategy='multi_section' requires "
-            "tickets.multi_section.sections to be a non-empty list"
+            f"{prefix}.inner_strategy is required when "
+            f"{prefix.split('.')[0]}.strategy wraps another strategy "
+            "(e.g. 'resale_filter', 'vfan_aware')"
         )
+    if not isinstance(raw, dict):
+        raise ValueError(f"{prefix}.inner_strategy must be a mapping")
+
+    strategy = raw.get("strategy", "cheapest")
+    if strategy in _WRAPPER_STRATEGIES:
+        raise ValueError(
+            f"{prefix}.inner_strategy.strategy={strategy!r} is itself a "
+            "wrapper; nested wrappers are not supported. Use a leaf "
+            "strategy (e.g. 'cheapest', 'price_range') instead."
+        )
+    section_target = _parse_section_target(raw, prefix)
+    price_range = _parse_price_range(raw, prefix)
+    multi_section = _parse_multi_section(raw, prefix)
+    _validate_strategy_constraints(
+        strategy=strategy,
+        price_range=price_range,
+        multi_section=multi_section,
+        prefix=prefix,
+    )
+    return InnerStrategyConfig(
+        strategy=strategy,
+        section_target=section_target,
+        price_range=price_range,
+        multi_section=multi_section,
+        max_price=_coerce_optional_float(raw.get("max_price"), f"{prefix}.max_price"),
+        accessible_seats=bool(raw.get("accessible_seats", False)),
+    )
+
+
+def _parse_resale_filter(raw: dict[str, Any], prefix: str) -> ResaleFilterConfig:
+    rf_raw = raw.get("resale_filter", {}) or {}
+    if not isinstance(rf_raw, dict):
+        raise ValueError(f"{prefix}.resale_filter must be a mapping")
+    return ResaleFilterConfig(
+        include_resale=bool(rf_raw.get("include_resale", False)),
+        exclude_resale=bool(rf_raw.get("exclude_resale", False)),
+    )
+
+
+def _parse_vfan_aware(raw: dict[str, Any], prefix: str) -> VFanAwareConfig:
+    vf_raw = raw.get("vfan_aware", {}) or {}
+    if not isinstance(vf_raw, dict):
+        raise ValueError(f"{prefix}.vfan_aware must be a mapping")
+    code = vf_raw.get("code")
+    if code is not None and not isinstance(code, str):
+        raise ValueError(f"{prefix}.vfan_aware.code must be a string")
+    return VFanAwareConfig(code=code)
+
+
+def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
+    tickets_raw = raw.get("tickets", {}) or {}
+    section_target = _parse_section_target(tickets_raw, "tickets")
+    price_range = _parse_price_range(tickets_raw, "tickets")
+    multi_section = _parse_multi_section(tickets_raw, "tickets")
+    resale_filter = _parse_resale_filter(tickets_raw, "tickets")
+    vfan_aware = _parse_vfan_aware(tickets_raw, "tickets")
+
+    strategy = tickets_raw.get("strategy", "cheapest")
+    inner_strategy_raw = tickets_raw.get("inner_strategy")
+    inner_strategy: InnerStrategyConfig | None
+    if strategy in _WRAPPER_STRATEGIES:
+        inner_strategy = _parse_inner_strategy(
+            inner_strategy_raw, "tickets.inner_strategy"
+        )
+    else:
+        if inner_strategy_raw is not None:
+            # Parse for validity but the field is meaningful only for
+            # wrapper strategies; we still surface mistakes early.
+            inner_strategy = _parse_inner_strategy(
+                inner_strategy_raw, "tickets.inner_strategy"
+            )
+        else:
+            inner_strategy = None
+
+    tickets = TicketsConfig(
+        quantity=int(tickets_raw.get("quantity", 2)),
+        strategy=strategy,
+        section_target=section_target,
+        price_range=price_range,
+        multi_section=multi_section,
+        resale_filter=resale_filter,
+        vfan_aware=vfan_aware,
+        inner_strategy=inner_strategy,
+        max_price=_coerce_optional_float(tickets_raw.get("max_price"), "tickets.max_price"),
+        accessible_seats=bool(tickets_raw.get("accessible_seats", False)),
+    )
+
+    _validate_strategy_constraints(
+        strategy=tickets.strategy,
+        price_range=tickets.price_range,
+        multi_section=tickets.multi_section,
+        prefix="tickets",
+    )
+
+    if tickets.strategy == "resale_filter":
+        if (
+            tickets.resale_filter.include_resale
+            and tickets.resale_filter.exclude_resale
+        ):
+            raise ValueError(
+                "tickets.resale_filter: set exactly one of include_resale or "
+                "exclude_resale, not both"
+            )
+        if (
+            not tickets.resale_filter.include_resale
+            and not tickets.resale_filter.exclude_resale
+        ):
+            raise ValueError(
+                "tickets.strategy='resale_filter' requires "
+                "tickets.resale_filter.include_resale=true or "
+                "tickets.resale_filter.exclude_resale=true"
+            )
+
+    if tickets.strategy == "vfan_aware":
+        code = tickets.vfan_aware.code
+        if not code or not code.strip():
+            raise ValueError(
+                "tickets.strategy='vfan_aware' requires a non-empty "
+                "tickets.vfan_aware.code"
+            )
 
     if not 1 <= tickets.quantity <= 8:
         raise ValueError(
@@ -712,15 +897,18 @@ __all__ = [
     "CheckoutConfig",
     "DeliveryConfig",
     "EventConfig",
+    "InnerStrategyConfig",
     "LoggingConfig",
     "MultiSectionConfig",
     "NotificationsConfig",
     "PaymentConfig",
     "PriceRangeConfig",
+    "ResaleFilterConfig",
     "SectionTargetConfig",
     "StealthConfig",
     "TicketsConfig",
     "TimingConfig",
+    "VFanAwareConfig",
     "config_to_yaml",
     "load_config",
 ]

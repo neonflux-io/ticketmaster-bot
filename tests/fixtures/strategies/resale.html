@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Resale Listings — Strategy Test Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 16px; }
+    [data-bdd='quick-picks-list'] { list-style: none; padding: 0; margin: 0; }
+    [data-bdd='quick-pick-row'] {
+      display: block;
+      padding: 12px 16px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      user-select: none;
+    }
+    [data-bdd='order-summary'] { margin-top: 24px; padding: 8px; background: #f5f5f5; }
+    .resale-pill {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #fdecea;
+      color: #b3261e;
+      font-size: 0.8em;
+    }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <h1 data-bdd="event-title">Test Event — Resale Mixed</h1>
+
+    <!-- Mixed fixture:
+         - idx=0 is the cheapest primary-market row ($80) and carries
+           NO resale tag. ResaleFilterStrategy(exclude_resale=True) wrapping
+           CheapestStrategy must pick this row.
+         - idx=1 is even cheaper ($50) but carries a resale tag - it must
+           be filtered out by exclude_resale=True.
+         - idx=2 is a higher-priced primary row.
+         - idx=3 is a higher-priced resale row.
+         - idx=4 is the cheapest overall ($30) but is a resale row.
+         -->
+    <ul data-bdd="quick-picks-list">
+      <li data-bdd="quick-pick-row" data-price-level-id="PL1" data-idx="0">
+        Section 100 Row A — $80.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL2" data-idx="1">
+        Section 200 Row B — $50.00 each
+        <span class="resale-pill" data-bdd="resale-tag">Resale</span>
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL3" data-idx="2">
+        Section 300 Row C — $200.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL4" data-idx="3">
+        Section 400 Row D — $350.00 each
+        <span class="resale-pill" data-bdd="resale-tag">Resale</span>
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL5" data-idx="4">
+        Section 500 Row E — $30.00 each
+        <span class="resale-pill" data-bdd="resale-tag">Resale</span>
+      </li>
+    </ul>
+
+    <section data-bdd="order-summary">Subtotal $0.00</section>
+  </main>
+
+  <script>
+    // Click recorder so tests can assert "row N was clicked exactly once".
+    window.__clicks = [];
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-bdd="quick-pick-row"]');
+      if (!row) return;
+      var idx = row.getAttribute('data-idx');
+      window.__clicks.push(idx);
+      var prev = parseInt(row.getAttribute('data-click-count') || '0', 10);
+      row.setAttribute('data-click-count', String(prev + 1));
+    }, true);
+  </script>
+</body>
+</html>
