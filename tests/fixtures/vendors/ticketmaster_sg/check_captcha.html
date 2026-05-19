@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for ticketmaster.sg check-captcha (terms + verification) page.
+
+ Source URL (real, captured 2026-05-20 by F7.1 recon):
+   https://ticketmaster.sg/ticket/check-captcha/26sg_pglcs2major/3239/1/21
+
+ Real-world behavior (verified during recon by a human solving the
+ challenge live):
+   - Yii image-CAPTCHA is rendered as ``<img id="TicketForm_verifyCode-image">``
+     with src=``/ticket/captcha?v=<token>``; the matching input is
+     ``<input id="TicketForm_verifyCode" name="TicketForm[verifyCode]">``.
+   - A separate **invisible** reCAPTCHA Enterprise widget is injected
+     into ``<iframe title="reCAPTCHA">`` (Google site key
+     ``6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV``). The hidden token
+     field is named ``g-recaptcha-response`` and is auto-populated by
+     Google's JS just before the form is submitted.
+   - A required terms checkbox ``#TicketForm_agree`` blocks submission
+     until ticked (client-side ``alert()`` is fired otherwise).
+   - ``<input type="hidden" name="_csrf">`` carries the Yii CSRF token
+     bound to the ``TIXPUISID`` session cookie.
+   - The form ``action`` is the same URL it was loaded from; success
+     redirects to ``auth.ticketmaster.com/as/authorization.oauth2?…``
+     (the OAuth login).
+
+ The fixture omits the live Google iframe (we don't drive third-party
+ widgets in our suite); a placeholder ``<iframe title="reCAPTCHA">`` is
+ included so detector code that looks for an iframe with that title can
+ still match.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Verification | Ticketmaster SG</title>
+  </head>
+  <body>
+    <main id="content">
+      <form
+        id="form-ticket-check-captcha"
+        action="/ticket/check-captcha/26sg_pglcs2major/3239/1/21"
+        method="post"
+      >
+        <input
+          type="hidden"
+          name="_csrf"
+          value="recon-csrf-placeholder-from-fixture"
+        />
+
+        <div id="captchaBox">
+          <div class="col-lg-12 text-center">
+            <div class="mgt-24">
+              <!-- The real image is /ticket/captcha?v=<token>; in the fixture
+                   we use a 1x1 data URI so the file is self-contained. -->
+              <img
+                id="TicketForm_verifyCode-image"
+                src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+                alt="Verification code"
+                style="cursor: pointer"
+              />
+            </div>
+
+            <div class="mgt-24">
+              Please enter the verification code
+              <input
+                type="text"
+                id="TicketForm_verifyCode"
+                name="TicketForm[verifyCode]"
+                placeholder="Verification Code"
+                value=""
+              />
+            </div>
+
+            <input
+              type="hidden"
+              name="g-recaptcha-response"
+              id="g-recaptcha-response"
+              value=""
+            />
+
+            <!-- The live page mounts the invisible reCAPTCHA Enterprise widget
+                 into an iframe like this one; included so iframe-based
+                 detectors find a real match. -->
+            <iframe
+              title="reCAPTCHA"
+              role="presentation"
+              src="about:blank"
+              style="width: 0; height: 0; border: 0; visibility: hidden"
+            ></iframe>
+          </div>
+
+          <div class="col-lg-12 form-check">
+            <div class="alert form-check-inline align-items-start">
+              <input
+                type="checkbox"
+                id="TicketForm_agree"
+                class="form-check-input"
+                name="TicketForm[agree]"
+                value="1"
+              />
+              <label class="form-check-label" for="TicketForm_agree">
+                I hereby acknowledge that I have read and agreed to
+                <a href="https://ticketmaster.sg/purchase" target="blank"
+                  >Purchase Policy</a
+                >
+                and the terms and conditions of this event (including the
+                Exchange and Refund Policy, Admission Policy and Conditions of
+                Entry for the event), and authorize Ticketmaster to collect,
+                process, utilize and internationally transmit my personal data
+                in accordance with the
+                <a href="/privacy" target="blank">Privacy Policy</a> and within
+                the scope of specific purposes set forth therein.
+              </label>
+            </div>
+          </div>
+
+          <div class="col-lg-12 text-center">
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

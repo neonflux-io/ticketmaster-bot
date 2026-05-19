@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for the AJAX-injected ticket-type chooser that the SG
+ site renders inside ``#priceList`` once the user picks a section.
+
+ Source (real, captured 2026-05-20 by F7.1 recon):
+   GET https://ticketmaster.sg/ticket/ticket/26sg_pglcs2major/3239/1/21
+
+ The endpoint returns an HTML fragment (NOT a JSON payload). The fixture
+ embeds that fragment inside a minimal page so Playwright can drive it
+ directly. The real fragment defines:
+   * a Yii form ``#form-ticket-ticket`` whose action is the same URL,
+   * a hidden CSRF input ``name="_csrf"``,
+   * one ``<tr id="pt-{n}">`` per ticket type with a price label and a
+     ``<select name="TicketForm[ticketPrice][{n}]">`` quantity dropdown,
+   * a hidden ``<input name="TicketForm[priceSize][{n}]">`` "weight"
+     companion to the dropdown,
+   * an ``#autoMode`` "Best Available" submit button and (when the venue
+     supports it) a ``#manualMode`` button that opens an interactive
+     seat-map iframe via Fancybox.
+
+ The recon target only exposes a single GA-style row; multi-price-tier
+ events extend the same pattern (e.g. tr id="pt-001" through "pt-005").
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Choose Your Tickets — ticketmaster.sg fixture</title>
+  </head>
+  <body>
+    <main id="content">
+      <div id="priceList">
+        <div class="col-lg-12">
+          <div class="panel-heading">
+            <div class="step"></div>
+            <span>Choose Your Tickets</span>
+          </div>
+
+          <div id="selectedArea" class="alert alert-section text-center mgt-16">
+            The section that you have selected is
+            <strong> <span id="groupName">GEN ADM</span> - GENERAL ADMISSION</strong>
+          </div>
+
+          <form
+            id="form-ticket-ticket"
+            action="/ticket/ticket/26sg_pglcs2major/3239/1/21"
+            method="post"
+          >
+            <input
+              type="hidden"
+              name="_csrf"
+              value="recon-csrf-placeholder-from-fixture"
+            />
+
+            <table
+              id="ticketPriceList"
+              class="table table-bordered col-xs-12 mgt-10 text-center"
+            >
+              <thead>
+                <tr>
+                  <th class="col-sm-3">Ticket Type</th>
+                  <th class="col-sm-2">Price</th>
+                  <th class="col-sm-2">Quantity</th>
+                  <th class="col-sm-5">Ticket Info</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr id="pt-005" class="ticket-row">
+                  <td class="text-bold ticketpricetext">Standard</td>
+                  <td>$144.00</td>
+                  <td>
+                    <select
+                      id="TicketForm_ticketPrice_005"
+                      class="w100 form-select"
+                      name="TicketForm[ticketPrice][005]"
+                    >
+                      <option value="0">Please Select</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                    </select>
+                    <input
+                      type="hidden"
+                      id="TicketForm_priceSize_005"
+                      name="TicketForm[priceSize][005]"
+                      value="1"
+                    />
+                  </td>
+                  <td class="text-start ticketnote"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="col-lg-12 pt-3 pb-5 text-center">
+              <button type="button" id="autoMode" class="btn btn-primary">
+                Best Available
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for the SG identity login page.
+
+ Source URL (real, captured 2026-05-20 by F7.1 recon):
+   https://auth.ticketmaster.com/as/authorization.oauth2?
+       client_id=1a554b2c04dc.web.ticketmaster.sg
+       &response_type=code
+       &scope=openid%20profile%20phone%20email%20tm
+       &redirect_uri=https%3A%2F%2Fidentity.ticketmaster.sg%2Fexchange
+       &visualPresets=tmsg
+       &lang=en-sg
+       &placementId=36ec02d0-53f0-11f1-93e4-02dfa3b2a58b
+       &hideLeftPanel=false
+       &integratorId=internet
+       &intSiteToken=tm-sg
+       &…
+
+ Notes (verified by recon):
+   - Host is the **same** auth.ticketmaster.com PingFederate OAuth2
+     surface used by ticketmaster.com — only the ``client_id``,
+     ``redirect_uri`` and ``visualPresets=tmsg`` differ.
+   - The email step submits with name=``email`` (id=``email-input``);
+     once accepted the page transitions to a password step (not part
+     of this fixture; identical to TM US flow).
+   - The form carries a hidden ``nds-pmd`` token (Mastercard NuData /
+     NuDetect device-fingerprint payload) and the page mounts
+     **invisible reCAPTCHA Enterprise** widgets (two different site
+     keys; the second is account-takeover-specific).
+   - Successful auth bounces to
+     ``https://identity.ticketmaster.sg/exchange?code=…&state=…``
+     and from there sets cookies in the ``.ticketmaster.sg`` domain.
+-->
+<html lang="en-sg">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ticketmaster Sign In</title>
+  </head>
+  <body>
+    <main id="main">
+      <form
+        class="sc-egTteR pZsgo"
+        method="get"
+        action="https://auth.ticketmaster.com/as/authorization.oauth2"
+      >
+        <input type="hidden" name="nds-pmd" value="recon-fingerprint-payload" />
+
+        <label for="email-input">Email Address</label>
+        <input
+          type="email"
+          name="email"
+          id="email-input"
+          placeholder="Email Address"
+          autocomplete="username"
+        />
+
+        <button name="sign-in" type="submit" disabled>Continue</button>
+        <button type="button" class="passkey-btn">Sign In With A Passkey</button>
+        <button type="button" class="passkey-howto">How To Add A Passkey</button>
+
+        <iframe
+          title="reCAPTCHA"
+          role="presentation"
+          src="about:blank"
+          style="width: 0; height: 0; border: 0; visibility: hidden"
+        ></iframe>
+      </form>
+    </main>
+  </body>
+</html>

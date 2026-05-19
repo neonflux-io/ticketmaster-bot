@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for ticketmaster.sg event-detail page.
+
+ Source URL (real, captured 2026-05-20 by F7.1 recon):
+   https://ticketmaster.sg/activity/detail/26sg_pglcs2major
+
+ Trimmed to the markup that the SG vendor adapter needs to interrogate:
+  - The schedule table rendered server-side by the Yii ``activity/detail``
+    action: ``<table class="auto-game-list">`` with one ``<tr>`` per date.
+  - Each row carries ``data-key`` (numeric event/area id used by TM SG) and
+    a "Find tickets" anchor whose ``href`` points to ``/ticket/area/<gameCode>/<dateId>``.
+  - The schedule ``<select>`` (``#date-list``) used as the alternative
+    date-picker control on smaller viewports.
+
+ Real DOM artefacts are preserved verbatim (class names, ids, text). No
+ mock JavaScript: tests should drive the page with Playwright and read
+ the same attributes the production page exposes.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      Tickets: PGL CS 2 Major Singapore 2026 @ Singapore Indoor Stadium |
+      Ticketmaster SG
+    </title>
+  </head>
+  <body>
+    <main id="content">
+      <h1 class="activity-title">PGL CS 2 Major Singapore 2026</h1>
+      <p class="venue">Singapore Indoor Stadium</p>
+
+      <select id="date-list" name="dateList" class="form-select">
+        <option value="0">Select an event date</option>
+        <option value="3239">10 Dec 2026 (Thu.)</option>
+        <option value="3240">11 Dec 2026 (Fri.)</option>
+        <option value="3241">12 Dec 2026 (Sat.)</option>
+        <option value="3242">13 Dec 2026 (Sun.)</option>
+      </select>
+
+      <table class="auto-game-list table table-bordered">
+        <thead>
+          <tr>
+            <th>Event Date &amp; Time</th>
+            <th>Event Name</th>
+            <th>Venue</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr id="26sg_pglcs2major-03e90420" class="text-center" data-key="3239">
+            <td>10 Dec 2026 (Thu.) 05:00 pm</td>
+            <td>PGL CS 2 Major Singapore 2026</td>
+            <td>Singapore Indoor Stadium</td>
+            <td>
+              <a
+                class="btn btn-primary text-bold m-0"
+                href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3239"
+                data-href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3239"
+                rel="nofollow"
+                >Find tickets</a
+              >
+            </td>
+          </tr>
+          <tr id="26sg_pglcs2major-a2c50560" class="text-center" data-key="3240">
+            <td>11 Dec 2026 (Fri.) 05:00 pm</td>
+            <td>PGL CS 2 Major Singapore 2026</td>
+            <td>Singapore Indoor Stadium</td>
+            <td>
+              <a
+                class="btn btn-primary text-bold m-0"
+                href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3240"
+                data-href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3240"
+                rel="nofollow"
+                >Find tickets</a
+              >
+            </td>
+          </tr>
+          <tr id="26sg_pglcs2major-67fa8b33" class="text-center" data-key="3241">
+            <td>12 Dec 2026 (Sat.) 05:00 pm</td>
+            <td>PGL CS 2 Major Singapore 2026</td>
+            <td>Singapore Indoor Stadium</td>
+            <td>
+              <a
+                class="btn btn-primary text-bold m-0"
+                href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3241"
+                data-href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3241"
+                rel="nofollow"
+                >Find tickets</a
+              >
+            </td>
+          </tr>
+          <tr id="26sg_pglcs2major-18072aca" class="text-center" data-key="3242">
+            <td>13 Dec 2026 (Sun.) 02:00 pm</td>
+            <td>PGL CS 2 Major Singapore 2026</td>
+            <td>Singapore Indoor Stadium</td>
+            <td>
+              <a
+                class="btn btn-primary text-bold m-0"
+                href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3242"
+                data-href="https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3242"
+                rel="nofollow"
+                >Find tickets</a
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

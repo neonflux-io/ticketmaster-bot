@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--
+ Distilled fixture for ticketmaster.sg ticket-area (seat-selection landing) page.
+
+ Source URL (real, captured 2026-05-20 by F7.1 recon):
+   https://ticketmaster.sg/ticket/area/26sg_pglcs2major/3239
+
+ The real page renders three blocks that the SG navigator/queue/cart logic
+ must read:
+   1. ``#sec-info`` – an event/date <select> (id=``Game[gameId]``) and a
+      quantity <select> (id=``TicketForm_count``) followed by a
+      ``#autoMode`` "Best Available" submit button.
+   2. ``#mapContainer`` – a venue map div populated by AJAX from
+      ``/ticket/get-area-map/<gameCode>/<dateId>`` plus the ``zone`` JSON
+      payload that describes each clickable area (areaUrl, price, status).
+   3. ``#priceList`` – the ticket-type chooser injected by AJAX from
+      ``/ticket/get-area-list/<gameCode>/<dateId>``; once a section is
+      picked the form ``#form-ticket-ticket`` is rendered (see
+      ``ticket_ticket.html`` fixture).
+
+ The fixture purposefully includes ``zone`` JSON inline so tests can
+ confirm that the SG-specific URL pattern ``/ticket/check-captcha/...``
+ is parsed correctly from a real area record.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Seat Selection | Ticketmaster SG</title>
+  </head>
+  <body>
+    <main id="content">
+      <section id="sec-info">
+        <h1>PGL CS 2 Major Singapore 2026</h1>
+
+        <select name="Game[gameId]" id="Game_gameId" class="form-select">
+          <option value="3239" selected>
+            10 Dec 2026 (Thu.) 05:00 pm &lt;Singapore Indoor Stadium&gt; PGL CS 2
+            Major Singapore 2026
+          </option>
+          <option value="3240">
+            11 Dec 2026 (Fri.) 05:00 pm &lt;Singapore Indoor Stadium&gt; PGL CS 2
+            Major Singapore 2026
+          </option>
+          <option value="3241">
+            12 Dec 2026 (Sat.) 05:00 pm &lt;Singapore Indoor Stadium&gt; PGL CS 2
+            Major Singapore 2026
+          </option>
+          <option value="3242">
+            13 Dec 2026 (Sun.) 02:00 pm &lt;Singapore Indoor Stadium&gt; PGL CS 2
+            Major Singapore 2026
+          </option>
+        </select>
+
+        <label for="TicketForm_count">Quantity</label>
+        <select
+          name="TicketForm[count]"
+          id="TicketForm_count"
+          class="form-select"
+        >
+          <option value="0" selected>Please Select</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+        </select>
+
+        <button type="button" id="autoMode" class="btn btn-primary">
+          Best Available
+        </button>
+      </section>
+
+      <div id="mapContainer" style="min-width: 200px; min-height: 200px; display: block;">
+        <!-- area map placeholder; populated by /ticket/get-area-map AJAX -->
+        <script type="application/json" id="zone-data">
+          {
+            "field_GA_A": {
+              "areaNo": 1,
+              "sectionCode": "field_GA_A",
+              "areaStatus": "SELLING FAST",
+              "areaStatusText": "SELLING FAST",
+              "description": "GENERAL ADMISSION",
+              "areaColor": "ffff00",
+              "areaUrl": "https://ticketmaster.sg/ticket/ticket/26sg_pglcs2major/3239/1/21",
+              "groupName": "GEN ADM",
+              "groupOrder": "1",
+              "price": [{ "ticketPriceText": "Standard", "ticketPrice": "$144.00" }]
+            }
+          }
+        </script>
+      </div>
+
+      <section id="step2">
+        <div id="priceList" class="row-no-gutters text-center">
+          <!-- populated by /ticket/get-area-list AJAX (see ticket_ticket.html for content) -->
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

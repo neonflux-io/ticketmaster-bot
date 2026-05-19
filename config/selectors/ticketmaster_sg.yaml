@@ -1,0 +1,223 @@
+# Logical-name -> CSS selector fallbacks for the **ticketmaster.sg**
+# (Singapore) vendor adapter. Drafted from F7.1 recon against the live
+# site on 2026-05-20; locked in by F7.2.
+#
+# Important: ticketmaster.sg runs a Yii/Bootstrap stack that is entirely
+# distinct from the React app at ticketmaster.com. **Do not reuse the
+# US ticketmaster.yaml selectors here** - ``data-bdd=`` attributes do
+# not exist on the SG site. The selectors below map straight to the
+# real ids, names, and CSS classes observed in:
+#   docs/recon/ticketmaster_sg/{01_home,02_event_detail,03_seat_selection,
+#                              04_captcha,05_login}.html
+# and the distilled fixtures under
+#   tests/fixtures/vendors/ticketmaster_sg/*.html
+#
+# Each list under a name is tried in order by
+# ``src.registry.selectors.locator(page, name)`` (joined with ", ").
+
+# ----- event detail page (/activity/detail/<gameCode>) ---------------------
+
+# Each row in the schedule table that lists the available event dates.
+# ``data-key`` is the numeric event/area id used in subsequent URLs.
+event_date_row:
+  - "table.auto-game-list tbody tr[data-key]"
+  - "tr[id^='26sg_'][data-key]"
+  - "tr[id^='27sg_'][data-key]"
+
+# The "Find tickets" anchor inside an event-date row. ``href`` points to
+# /ticket/area/<gameCode>/<dateId>.
+event_find_tickets_link:
+  - "table.auto-game-list tbody tr a.btn-primary"
+  - "tr[data-key] a[href*='/ticket/area/']"
+
+# Alternative date <select> shown on smaller viewports.
+event_date_select:
+  - "select#date-list"
+  - "select[name='dateList']"
+
+# ----- ticket-area page (/ticket/area/<gameCode>/<dateId>) -----------------
+
+# Top-of-page date/event <select>. The bot reads its value, the user can
+# also change it to pick a different show.
+ticket_area_event_select:
+  - "select#Game_gameId"
+  - "select[name='Game[gameId]']"
+
+# Quantity <select> on the area page (1..max-per-customer).
+ticket_area_quantity_select:
+  - "select#TicketForm_count"
+  - "select[name='TicketForm[count]']"
+
+# "Best Available" submit button on the area page.
+ticket_area_best_available_button:
+  - "button#autoMode"
+  - "button.btn-primary:has-text('Best Available')"
+
+# Container that the area-map AJAX (``/ticket/get-area-map``) populates.
+ticket_area_map_container:
+  - "div#mapContainer"
+
+# Clickable section group inside the area-map SVG. ``id`` is the
+# sectionCode (e.g. ``field_GA_A``); the matching record in the inline
+# ``zone`` JSON carries the section-specific check-captcha URL.
+ticket_area_section_group:
+  - "div#mapContainer svg g#sections > g[id]"
+
+# Section list rendered by ``/ticket/get-area-list`` (text-only fallback
+# when SVG fails to load).
+ticket_area_section_link:
+  - "div.area_list a[id]"
+  - "div.area_select ul.zone-list li a"
+
+# Selected-area indicator that appears once a section is chosen.
+ticket_area_selected_section_label:
+  - "div#selectedArea strong"
+  - "span#groupName"
+
+# ----- ticket-type chooser (AJAX inside #priceList) ------------------------
+
+# Each ticket type row (Standard / VIP / etc.).
+ticket_type_row:
+  - "table#ticketPriceList tbody tr[id^='pt-']"
+
+# Visible price text inside a ticket-type row. Sample values seen on the
+# live site: "$144.00" (SGD - the site uses the bare $ sign).
+ticket_type_price_text:
+  - "table#ticketPriceList tbody tr[id^='pt-'] td:nth-of-type(2)"
+
+# Visible ticket-type name (e.g. "Standard").
+ticket_type_name_text:
+  - "table#ticketPriceList tbody tr[id^='pt-'] td.ticketpricetext"
+
+# Per-ticket-type quantity <select>. The id suffix matches the row id
+# (``pt-005`` -> ``TicketForm_ticketPrice_005``).
+ticket_type_quantity_select:
+  - "select[id^='TicketForm_ticketPrice_']"
+  - "select[name^='TicketForm[ticketPrice]']"
+
+# Hidden companion that carries the weight/multiplier for that row.
+ticket_type_price_size_input:
+  - "input[type='hidden'][id^='TicketForm_priceSize_']"
+  - "input[type='hidden'][name^='TicketForm[priceSize]']"
+
+# Submit button inside ``#form-ticket-ticket`` ("Best Available").
+ticket_form_submit_button:
+  - "button#autoMode"
+  - "form#form-ticket-ticket button:has-text('Best Available')"
+
+# Optional "Pick Your Own Seat" button - only rendered for venues that
+# opt into the Fancybox seat-map. Clicking it opens
+# ``/ticket/select-seat/<gameCode>/<dateId>/<count>/<qty>`` in a Fancybox
+# iframe.
+ticket_form_manual_seat_button:
+  - "button#manualMode"
+
+# Hidden CSRF token on every Yii form on the SG site.
+csrf_input:
+  - "input[type='hidden'][name='_csrf']"
+
+# ----- check-captcha page (/ticket/check-captcha/...) ----------------------
+
+check_captcha_form:
+  - "form#form-ticket-check-captcha"
+
+# Yii image-CAPTCHA <img>. The ``src`` is /ticket/captcha?v=<token>.
+# Clicking the image refreshes it via /ticket/captcha?refresh=1.
+captcha_image:
+  - "img#TicketForm_verifyCode-image"
+
+# Text input for the alpha-only verification code.
+captcha_input:
+  - "input#TicketForm_verifyCode"
+  - "input[name='TicketForm[verifyCode]']"
+
+# Required terms checkbox. Submission is blocked by inline jQuery if
+# unticked, with a client-side ``alert()``.
+captcha_terms_checkbox:
+  - "input#TicketForm_agree"
+  - "input[type='checkbox'][name='TicketForm[agree]']"
+
+# Submit button (no id; only "Submit" text). Scope to the form so we
+# don't grab a footer button by accident.
+captcha_submit_button:
+  - "form#form-ticket-check-captcha button[type='submit']"
+  - "form#form-ticket-check-captcha button:has-text('Submit')"
+
+# Hidden field that Google's invisible reCAPTCHA Enterprise widget fills
+# in just before the form is posted.
+recaptcha_response_input:
+  - "input#g-recaptcha-response"
+  - "input[name='g-recaptcha-response']"
+
+# Frames whose presence proves the SG site has thrown a captcha at us
+# (regardless of whether the user has touched it yet).
+captcha_iframe:
+  - "iframe[title='reCAPTCHA']"
+  - "iframe[src*='recaptcha/enterprise']"
+  - "iframe[src*='recaptcha/api2/anchor']"
+
+# ----- login page (auth.ticketmaster.com OAuth) ----------------------------
+
+login_email_input:
+  - "input#email-input"
+  - "input[name='email']"
+
+login_continue_button:
+  - "button[name='sign-in']"
+  - "form button[type='submit']"
+
+login_passkey_button:
+  - "button:has-text('Sign In With A Passkey')"
+
+# Hidden NuData / NuDetect device-fingerprint payload posted alongside
+# the credentials. Useful as a "page is fully booted" marker.
+login_nds_pmd_input:
+  - "input[type='hidden'][name='nds-pmd']"
+
+# ----- queue (Queue-It) ----------------------------------------------------
+
+# ticketmaster.sg fronts every page with the Queue-It JS interceptor
+# (customer id ``ticketmasterasia``, NOT ``ticketmastersg``). When a
+# queue is active, the user is hard-redirected to the queue-it.net
+# subdomain - we detect it by URL.
+
+queue_redirect_url_substrings:
+  - "queue-it.net"
+  - "ticketmasterasia.queue-it.net"
+
+# Queue-It in-line UI fragments that survive on the SG host while
+# waiting (rare; only on light queues).
+queue_position_text:
+  - "text=/your place in line/i"
+  - "text=/people ahead of you/i"
+  - "[class*='queue-position']"
+
+# ----- page-level state markers --------------------------------------------
+
+# The SG navigator/state-detector uses these to classify a page when
+# the URL alone is ambiguous.
+
+sold_out_marker:
+  - "text=/sold out/i"
+  - "text=/no tickets are available/i"
+  - "text=/SOLD OUT/i"
+
+not_on_sale_marker:
+  - "text=/sale starts/i"
+  - "text=/on sale/i"
+  - "text=/presale/i"
+
+# Anything that proves we're past the captcha gate and inside the
+# real seat-selection flow.
+seat_selection_loaded_markers:
+  - "button#autoMode"
+  - "div#mapContainer"
+  - "form#form-ticket-ticket"
+
+# Body-text scope used by auth/queue detectors.
+page_body:
+  - "body"
+
+main_content:
+  - "main"
+  - "[role='main']"
