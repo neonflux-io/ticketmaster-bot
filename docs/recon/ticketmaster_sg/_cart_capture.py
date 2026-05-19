@@ -553,22 +553,31 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
             vlog("STEP 5 re-checking for OAuth redirect post-captcha")
             await _maybe_login(page, email, password)
 
-            # 6. Wait for cart URL
-            vlog("STEP 6 waiting for cart/checkout URL substring (up to 240s)")
+            # 6. Wait for cart URL. SG renders the cart+checkout combined
+            #    page at ``/ticket/checkout`` (no trailing slash). The
+            #    interstitial ``/ticket/order`` URL appears AFTER the
+            #    captcha clears and BEFORE the final ``/ticket/checkout``
+            #    landing — we must NOT dump cart.html from that
+            #    intermediate page, so we look strictly for
+            #    ``/ticket/checkout``. ``_wait_for_url_substring`` does a
+            #    plain ``in`` check, so the no-trailing-slash substring
+            #    matches both ``/ticket/checkout`` and
+            #    ``/ticket/checkout/...``.
+            vlog("STEP 6 waiting for /ticket/checkout URL substring (up to 240s)")
             cart_seen = await _wait_for_url_substring(
                 page,
-                ("/ticket/checkout/", "/cart"),
+                ("/ticket/checkout",),
                 timeout_s=240.0,
-                label="cart-or-checkout",
+                label="checkout-landing",
                 heartbeat_s=5.0,
             )
             if not cart_seen:
                 vlog(
-                    "STEP 6 did not reach /ticket/checkout/ within 4 minutes; "
+                    "STEP 6 did not reach /ticket/checkout within 4 minutes; "
                     f"capturing current page (url={_safe_url(page)})"
                 )
             else:
-                vlog(f"STEP 6 reached cart/checkout url={_safe_url(page)}")
+                vlog(f"STEP 6 reached /ticket/checkout url={_safe_url(page)}")
             vlog("STEP 6 waiting for networkidle (up to 20s)")
             try:
                 await page.wait_for_load_state("networkidle", timeout=20_000)
@@ -582,39 +591,16 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
                 screenshot=SCREENSHOTS_DIR / "cart.png",
             )
 
-            # 7. Advance one more step (delivery/payment) — but DO NOT click any
-            #    final Pay / Place Order button.
-            vlog("STEP 7 hunting Continue/Checkout/Proceed/Next button (no Pay click)")
-            next_btn = page.locator(
-                "button:has-text('Continue'), button:has-text('Checkout'), "
-                "button:has-text('Proceed'), a:has-text('Checkout'), "
-                "button:has-text('Next'), button:has-text('Confirm')"
-            ).first
-            try:
-                visible = await next_btn.is_visible(timeout=2_500)
-                vlog(f"STEP 7 next-button is_visible={visible}")
-                if visible:
-                    vlog("STEP 7 clicking first non-purchase advance button")
-                    await _click_and_observe(
-                        page, next_btn, name="checkout_continue_button", settle_s=2.0
-                    )
-                    vlog("STEP 7 waiting for networkidle post-click (up to 20s)")
-                    try:
-                        await page.wait_for_load_state("networkidle", timeout=20_000)
-                        vlog(f"STEP 7 networkidle reached url={_safe_url(page)}")
-                    except Exception as exc:  # noqa: BLE001
-                        vlog(f"STEP 7 networkidle skipped: {exc!r}")
-                    if "check-captcha" in _safe_url(page):
-                        vlog("STEP 7 second captcha gate hit — USER: solve it")
-                        await _await_captcha_clear(page)
-                else:
-                    vlog(
-                        "STEP 7 no Continue/Checkout button visible; "
-                        "capturing same page as checkout"
-                    )
-            except Exception as exc:  # noqa: BLE001
-                vlog(f"STEP 7 continue-to-checkout warning: {exc!r}")
-
+            # 7. SG combines cart-review + checkout (Contact Details,
+            #    Payment Method, Delivery Method, order timer) onto a
+            #    single ``/ticket/checkout`` page. There is no "Continue
+            #    to checkout" intermediate to click; the only button
+            #    that advances from here is "Confirm/Place Order",
+            #    which IS the final purchase action and must NEVER be
+            #    auto-clicked by this recon script. We therefore dump
+            #    the same DOM to ``checkout.html`` so downstream F7.4
+            #    fixtures see both filenames, but we do not navigate.
+            vlog("STEP 7 SG cart+checkout share one page — re-dumping DOM to checkout.html")
             await _capture_dom(
                 page,
                 FIXTURES_DIR / "checkout.html",
