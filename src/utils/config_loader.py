@@ -218,9 +218,28 @@ class TimingConfig:
 
 
 @dataclass
+class ArtifactsConfig:
+    """Per-run artefact capture settings.
+
+    Currently controls whether Playwright records a HAR of every
+    network request during the run. When ``record_har`` is true, the
+    runner threads ``record_har_path`` into
+    ``Browser.launch_persistent_context`` at context creation time so
+    a ``network.har`` file is finalised when the context closes.
+
+    Tied to :class:`LoggingConfig.artifacts` so the YAML key path is
+    ``logging.artifacts.record_har`` — keeping every observation/debug
+    knob under one top-level section.
+    """
+
+    record_har: bool = False
+
+
+@dataclass
 class LoggingConfig:
     level: str = "INFO"
     file: str | None = "logs/bot.log"
+    artifacts: ArtifactsConfig = field(default_factory=ArtifactsConfig)
 
 
 @dataclass
@@ -850,9 +869,14 @@ def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
     level = str(logging_raw.get("level", "INFO")).upper()
     if level not in _VALID_LOG_LEVELS:
         raise ValueError(f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}")
+    artifacts_raw = logging_raw.get("artifacts", {}) or {}
+    if not isinstance(artifacts_raw, dict):
+        raise ValueError(f"logging.artifacts must be a mapping, got {type(artifacts_raw).__name__}")
+    artifacts = ArtifactsConfig(record_har=bool(artifacts_raw.get("record_har", False)))
     return LoggingConfig(
         level=level,
         file=logging_raw.get("file", "logs/bot.log"),
+        artifacts=artifacts,
     )
 
 
@@ -877,8 +901,7 @@ def _parse_proxy(raw: dict[str, Any]) -> ProxyConfig:
     proxy_raw = raw.get("proxy", {}) or {}
     if not isinstance(proxy_raw, dict):
         raise ValueError(
-            f"proxy must be a mapping with keys enabled/policy/urls, "
-            f"got {type(proxy_raw).__name__}"
+            f"proxy must be a mapping with keys enabled/policy/urls, got {type(proxy_raw).__name__}"
         )
     urls_raw = proxy_raw.get("urls", [])
     if urls_raw is None:
@@ -894,9 +917,7 @@ def _parse_proxy(raw: dict[str, Any]) -> ProxyConfig:
     # manager re-validate at construction time as a belt-and-braces
     # check.
     if policy not in {"sticky", "round_robin"}:
-        raise ValueError(
-            f"proxy.policy must be 'sticky' or 'round_robin', got {policy!r}"
-        )
+        raise ValueError(f"proxy.policy must be 'sticky' or 'round_robin', got {policy!r}")
     return ProxyConfig(
         enabled=bool(proxy_raw.get("enabled", False)),
         policy=policy,
@@ -1046,6 +1067,7 @@ def config_to_yaml(config: BotConfig) -> str:
 
 __all__ = [
     "AccountConfig",
+    "ArtifactsConfig",
     "BotConfig",
     "BrowserConfig",
     "CheckoutConfig",

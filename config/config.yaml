@@ -116,6 +116,13 @@ browser:
 logging:
   level: "INFO"                 # DEBUG | INFO | WARNING | ERROR | CRITICAL
   file: "logs/bot.log"
+  # Per-run artefact capture. When ``record_har: true``, Playwright
+  # records a HAR of every network request to
+  # ``logs/run-<UTC>-<account>/network.har``. Combine with
+  # ``ScreenshotOnFailureHook`` to produce a full ``screenshot.png +
+  # dom.html + console.log + network.har`` dump on failures.
+  artifacts:
+    record_har: false
 
 notifications:
   desktop: true

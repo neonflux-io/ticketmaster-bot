@@ -16,6 +16,7 @@ from ...proxy.manager import ProxyManager
 from ...strategies.factory import build_strategy
 from ...utils.notifier import notify
 from ...utils.retry import maybe_human_delay
+from ...utils.run_artifacts import RunArtifactDir, har_kwargs
 from ...utils.stealth import (
     apply_stealth,
     jittered_viewport,
@@ -49,6 +50,9 @@ class BotRunner:
         # the multiplex bridge) before ``run()`` is awaited.
         self.hooks: HookRegistry = HookRegistry()
         self.lifecycle: LifecycleDispatcher = LifecycleDispatcher(self.hooks)
+        # Populated lazily inside ``_run`` when HAR recording is on so
+        # hooks / tests can resolve the per-run artefact directory.
+        self.artifact_dir: RunArtifactDir | None = None
 
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
@@ -131,15 +135,38 @@ class BotRunner:
         # configured, in which case the kwarg is omitted entirely (rather
         # than passed as ``proxy=None``) because Playwright's typed
         # bindings reject ``None`` for that field on some versions.
-        proxy_kwargs = self.proxy_manager.resolve(
-            self.account.name if self.account else None
-        )
+        proxy_kwargs = self.proxy_manager.resolve(self.account.name if self.account else None)
         if proxy_kwargs is not None:
             log.info(
                 "Using proxy %s for account %s",
                 proxy_kwargs.get("server"),
                 self.account.name if self.account else "<no-account>",
             )
+
+        # When HAR recording is enabled, allocate the per-run artefact
+        # directory up front so the path threaded into Playwright's
+        # ``record_har_path`` kwarg lives under
+        # ``logs/run-<UTC>-<account>/network.har``. The directory is
+        # created lazily; passing the path to
+        # ``launch_persistent_context`` is enough — Playwright creates
+        # the file on first network event and finalises it on close.
+        artifact_dir: RunArtifactDir | None = None
+        har_launch_kwargs: dict[str, str] = {}
+        if cfg.logging.artifacts.record_har:
+            base_dir = Path(cfg.logging.file).parent if cfg.logging.file else Path("logs")
+            artifact_dir = RunArtifactDir(
+                base=base_dir,
+                account_name=self.account.name if self.account else None,
+            )
+            artifact_dir.ensure()
+            har_launch_kwargs = har_kwargs(artifact_dir.path("network.har"))
+            log.info(
+                "Recording HAR to %s",
+                artifact_dir.path("network.har"),
+            )
+        # Expose the artefact dir so hooks/tests can resolve the run
+        # path without re-computing it.
+        self.artifact_dir = artifact_dir
 
         async with async_playwright() as p:
             log.info(
@@ -167,6 +194,8 @@ class BotRunner:
             }
             if proxy_kwargs is not None:
                 launch_kwargs["proxy"] = proxy_kwargs
+            if har_launch_kwargs:
+                launch_kwargs.update(har_launch_kwargs)
             context = await p.chromium.launch_persistent_context(**launch_kwargs)
             await apply_stealth(context, stealth_cfg)
             try:
@@ -203,18 +232,14 @@ class BotRunner:
                     if humanize_cfg.enabled and humanize_cfg.typing.enabled
                     else None
                 )
-                await self.lifecycle.fire(
-                    "before_login", self, account=self.account.name
-                )
+                await self.lifecycle.fire("before_login", self, account=self.account.name)
                 await auth.login(
                     context,
                     self.account,
                     action_delay=(self.action_delay_min, self.action_delay_max),
                     typing_cfg=typing_cfg,
                 )
-                await self.lifecycle.fire(
-                    "after_login", self, account=self.account.name
-                )
+                await self.lifecycle.fire("after_login", self, account=self.account.name)
             else:
                 log.info("Existing session detected for %s", self.account.name)
         else:
@@ -327,9 +352,7 @@ class BotRunner:
         # 7. Checkout
         await self.lifecycle.fire("before_checkout", self, candidate=chosen)
         if cfg.checkout.auto_purchase:
-            await self.lifecycle.fire(
-                "before_place_order", self, candidate=chosen
-            )
+            await self.lifecycle.fire("before_place_order", self, candidate=chosen)
         success = await checkout.run_checkout(
             page,
             auto_purchase=cfg.checkout.auto_purchase,
