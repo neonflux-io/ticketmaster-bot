@@ -37,7 +37,12 @@ from dotenv import load_dotenv
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _VALID_LOG_FORMATS = {"rich", "json"}
-_DEFAULT_TRUSTED_HOSTS = ("ticketmaster.com", "ticketmaster.ca", "livenation.com")
+_DEFAULT_TRUSTED_HOSTS = (
+    "ticketmaster.com",
+    "ticketmaster.ca",
+    "ticketmaster.sg",
+    "livenation.com",
+)
 _ENV_VAR_RE = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
