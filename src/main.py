@@ -13,11 +13,12 @@ if str(_here.parent) not in sys.path:
     sys.path.insert(0, str(_here.parent))
 
 from src.bot.core import BotRunner  # noqa: E402
-from src.utils.config_loader import load_config  # noqa: E402
+from src.cli import parse_set_overrides  # noqa: E402
+from src.utils.config_loader import config_to_yaml, load_config  # noqa: E402
 from src.utils.logger import setup_logger  # noqa: E402
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Ticketmaster ticket-buying bot")
     p.add_argument(
         "--config",
@@ -35,6 +36,25 @@ def parse_args() -> argparse.Namespace:
         "--account-name",
         default=None,
         help="Run only the account with this name (default: first account)",
+    )
+    p.add_argument(
+        "--profile",
+        default=None,
+        help=(
+            "Apply config/profiles/<name>.yaml on top of the main config. "
+            "Ships with 'fast' and 'safe'."
+        ),
+    )
+    p.add_argument(
+        "--set",
+        dest="set_overrides",
+        action="append",
+        default=[],
+        metavar="KEY.PATH=VALUE",
+        help=(
+            "Override a config value at a dotted path. "
+            "Repeatable, e.g. --set tickets.quantity=4 --set checkout.auto_purchase=false"
+        ),
     )
 
     headless_group = p.add_mutually_exclusive_group()
@@ -72,7 +92,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Validate config and exit without launching a browser",
     )
-    return p.parse_args()
+    p.add_argument(
+        "--explain",
+        action="store_true",
+        help=(
+            "Dump the fully resolved config as YAML to stdout and exit. "
+            "Useful for verifying profile/--set overlays before a real run."
+        ),
+    )
+    return p.parse_args(argv)
 
 
 async def main_async() -> int:
@@ -83,7 +111,19 @@ async def main_async() -> int:
     bootstrap_log = logging.getLogger("ticketmaster-bot")
 
     try:
-        config = load_config(args.config, args.accounts)
+        overrides = parse_set_overrides(args.set_overrides)
+    except ValueError as exc:
+        # argparse-style error: print to stderr and exit 2.
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        config = load_config(
+            args.config,
+            args.accounts,
+            profile=args.profile,
+            overrides=overrides,
+        )
     except Exception:
         bootstrap_log.exception("Failed to load config")
         return 2
@@ -93,10 +133,19 @@ async def main_async() -> int:
     if args.auto_purchase is not None:
         config.checkout.auto_purchase = args.auto_purchase
 
+    # --explain runs before logging is reconfigured so the resolved YAML is
+    # the *only* thing on stdout. Rich/RichHandler writes to stderr by
+    # default, so callers can safely `python run.py --explain | yq ...`.
+    if args.explain:
+        sys.stdout.write(config_to_yaml(config))
+        sys.stdout.flush()
+        return 0
+
     log = setup_logger(level=config.logging.level, log_file=config.logging.file)
     log.info("=" * 60)
     log.info("Ticketmaster Bot starting")
-    log.info("Event: %s", config.event.url)
+    for i, evt in enumerate(config.events, start=1):
+        log.info("Event %d: %s", i, evt.url)
     log.info(
         "Strategy: %s | Quantity: %d | Auto-purchase: %s",
         config.tickets.strategy,

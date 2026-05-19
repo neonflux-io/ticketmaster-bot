@@ -1,9 +1,26 @@
-"""Configuration loader and validator."""
+"""Configuration loader and validator.
+
+Resolution order (highest precedence last):
+
+1. Built-in dataclass defaults.
+2. Top-level ``config.yaml`` (the file passed to ``--config``).
+3. Named profile YAML from ``config/profiles/<name>.yaml`` when ``--profile``
+   is given. Profiles are themselves layered: ``profiles: [a, b]`` in either
+   the main config or as a CLI list applies ``a`` first, then ``b``.
+4. ``--set key.path=value`` CLI overrides.
+5. ``${VAR}`` env-var expansion runs over the merged tree last so it always
+   sees the final string values (regardless of which layer introduced them).
+
+The single-event ``event: {...}`` key continues to load. Internally it is
+normalised into a one-element ``events: [...]`` list so the rest of the
+codebase only needs to handle one shape.
+"""
 from __future__ import annotations
 
+import copy
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +37,9 @@ from dotenv import load_dotenv
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _DEFAULT_TRUSTED_HOSTS = ("ticketmaster.com", "ticketmaster.ca", "livenation.com")
 _ENV_VAR_RE = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_PROFILES_DIR = _REPO_ROOT / "config" / "profiles"
 
 
 @dataclass
@@ -132,7 +152,7 @@ class AccountConfig:
 
 @dataclass
 class BotConfig:
-    event: EventConfig
+    events: list[EventConfig]
     tickets: TicketsConfig
     checkout: CheckoutConfig
     timing: TimingConfig
@@ -140,6 +160,52 @@ class BotConfig:
     notifications: NotificationsConfig
     browser: BrowserConfig
     accounts: list[AccountConfig]
+
+    @property
+    def event(self) -> EventConfig:
+        """Backwards-compat: return the first event.
+
+        Existing call-sites that pre-date the multi-event refactor read
+        ``cfg.event``. With ``events: [...]`` normalisation, that always
+        resolves to the first (and primary) event.
+        """
+        return self.events[0]
+
+
+# ---------------------------------------------------------------------------
+# Pure helpers (exposed for tests).
+# ---------------------------------------------------------------------------
+
+
+def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``overlay`` into ``base`` without mutating either.
+
+    Dict values are merged key-by-key; every other type (including lists)
+    is replaced wholesale. The returned dict shares no mutable state with
+    the inputs.
+    """
+    result: dict[str, Any] = copy.deepcopy(base)
+    for key, value in overlay.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
+def _expand_env_in_obj(obj: Any) -> Any:
+    """Recursively expand ``${VAR}`` placeholders in every string in ``obj``."""
+    if isinstance(obj, dict):
+        return {k: _expand_env_in_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_expand_env_in_obj(item) for item in obj]
+    if isinstance(obj, str):
+        return _expand_env(obj)
+    return obj
 
 
 def _parse_datetime(value: Any, fallback_tz: str | None = None) -> datetime | None:
@@ -213,23 +279,37 @@ def _validate_event_url(url: str, strict: bool) -> None:
         logging.getLogger("ticketmaster-bot").warning(msg)
 
 
-def load_config(
-    config_path: str | Path = "config/config.yaml",
-    accounts_path: str | Path = "config/accounts.yaml",
-) -> BotConfig:
-    """Load and validate config from YAML files."""
-    load_dotenv()
+# ---------------------------------------------------------------------------
+# Profile loading.
+# ---------------------------------------------------------------------------
 
-    config_path = Path(config_path)
-    accounts_path = Path(accounts_path)
 
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
+def _resolve_profile_path(name: str, profiles_dir: Path) -> Path:
+    """Return the path to ``<profiles_dir>/<name>.yaml`` or raise."""
+    candidate = profiles_dir / f"{name}.yaml"
+    if not candidate.is_file():
+        raise FileNotFoundError(
+            f"Profile {name!r} not found at {candidate}. "
+            f"Add the file or remove --profile."
+        )
+    return candidate
 
-    with open(config_path) as f:
-        raw = yaml.safe_load(f) or {}
 
-    browser_raw = raw.get("browser", {})
+def _load_profile(name: str, profiles_dir: Path) -> dict[str, Any]:
+    path = _resolve_profile_path(name, profiles_dir)
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"Profile {name!r} ({path}) must be a YAML mapping")
+    return raw
+
+
+# ---------------------------------------------------------------------------
+# Parsing the merged dict into typed dataclasses.
+# ---------------------------------------------------------------------------
+
+
+def _parse_browser(raw: dict[str, Any]) -> BrowserConfig:
+    browser_raw = raw.get("browser", {}) or {}
     stealth_raw = browser_raw.get("stealth", {}) or {}
     extra_headers = stealth_raw.get("extra_http_headers") or {}
     if not isinstance(extra_headers, dict) or not all(
@@ -246,7 +326,7 @@ def load_config(
         ),
         viewport_jitter=int(stealth_raw.get("viewport_jitter", 30)),
     )
-    browser = BrowserConfig(
+    return BrowserConfig(
         headless=bool(browser_raw.get("headless", False)),
         slow_mo_ms=int(browser_raw.get("slow_mo_ms", 0)),
         user_data_dir=browser_raw.get("user_data_dir", "sessions/default"),
@@ -255,22 +335,49 @@ def load_config(
         stealth=stealth,
     )
 
-    event_raw = raw.get("event", {})
-    if "url" not in event_raw:
-        raise ValueError("config.event.url is required")
-    strict_host = bool(event_raw.get("strict_host", False))
-    _validate_event_url(event_raw["url"], strict=strict_host)
 
-    event = EventConfig(
-        url=event_raw["url"],
-        on_sale_time=_parse_datetime(
-            event_raw.get("on_sale_time"), fallback_tz=browser.timezone
-        ),
-        refresh_interval_seconds=float(event_raw.get("refresh_interval_seconds", 2.0)),
-        strict_host=strict_host,
-    )
+def _parse_events(raw: dict[str, Any], browser_tz: str) -> list[EventConfig]:
+    """Return one ``EventConfig`` per entry in the merged ``events`` list.
 
-    tickets_raw = raw.get("tickets", {})
+    The legacy ``event: {...}`` key is normalised into a one-element list
+    when ``events:`` is absent. If both are present, ``events:`` wins.
+    """
+    if "events" in raw and raw["events"] is not None:
+        events_raw = raw["events"]
+        if not isinstance(events_raw, list):
+            raise ValueError("config.events must be a list of event mappings")
+        if not events_raw:
+            raise ValueError("config.events must contain at least one event")
+    elif "event" in raw and raw["event"] is not None:
+        events_raw = [raw["event"]]
+    else:
+        raise ValueError(
+            "config must define either 'event: {url: ...}' or 'events: [{url: ...}, ...]'"
+        )
+
+    parsed: list[EventConfig] = []
+    for i, entry in enumerate(events_raw):
+        if not isinstance(entry, dict):
+            raise ValueError(f"events[{i}] must be a mapping, got {type(entry).__name__}")
+        if "url" not in entry:
+            raise ValueError(f"events[{i}].url is required")
+        strict_host = bool(entry.get("strict_host", False))
+        _validate_event_url(entry["url"], strict=strict_host)
+        parsed.append(
+            EventConfig(
+                url=entry["url"],
+                on_sale_time=_parse_datetime(
+                    entry.get("on_sale_time"), fallback_tz=browser_tz
+                ),
+                refresh_interval_seconds=float(entry.get("refresh_interval_seconds", 2.0)),
+                strict_host=strict_host,
+            )
+        )
+    return parsed
+
+
+def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
+    tickets_raw = raw.get("tickets", {}) or {}
     section_target_raw = tickets_raw.get("section_target", {}) or {}
     row_range_raw = section_target_raw.get("row_range")
     if row_range_raw is not None:
@@ -304,8 +411,11 @@ def load_config(
         raise ValueError(
             f"tickets.quantity must be between 1 and 8, got {tickets.quantity}"
         )
+    return tickets
 
-    checkout_raw = raw.get("checkout", {})
+
+def _parse_checkout(raw: dict[str, Any]) -> CheckoutConfig:
+    checkout_raw = raw.get("checkout", {}) or {}
     payment_raw = checkout_raw.get("payment", {}) or {}
     delivery_raw = checkout_raw.get("delivery", {}) or {}
     preferred = delivery_raw.get("preferred")
@@ -318,14 +428,16 @@ def load_config(
         delivery_cfg.preferred = [s.lower() for s in preferred]
     if "allow_any" in delivery_raw:
         delivery_cfg.allow_any = bool(delivery_raw["allow_any"])
-    checkout = CheckoutConfig(
+    return CheckoutConfig(
         auto_purchase=bool(checkout_raw.get("auto_purchase", False)),
         payment=PaymentConfig(card_last_four=payment_raw.get("card_last_four")),
         delivery=delivery_cfg,
         price_tolerance=float(checkout_raw.get("price_tolerance", 0.05)),
     )
 
-    timing_raw = raw.get("timing", {})
+
+def _parse_timing(raw: dict[str, Any]) -> TimingConfig:
+    timing_raw = raw.get("timing", {}) or {}
     delays = timing_raw.get("action_delay_seconds", [0.5, 2.0])
     if not isinstance(delays, list) or len(delays) != 2:
         raise ValueError("timing.action_delay_seconds must be [min, max] list")
@@ -335,7 +447,7 @@ def load_config(
         raise ValueError("timing.action_delay_seconds must be numeric") from exc
     if delay_min < 0 or delay_max < delay_min:
         raise ValueError("timing.action_delay_seconds must satisfy 0 <= min <= max")
-    timing = TimingConfig(
+    return TimingConfig(
         page_timeout_seconds=float(timing_raw.get("page_timeout_seconds", 30.0)),
         queue_check_interval_seconds=float(
             timing_raw.get("queue_check_interval_seconds", 5.0)
@@ -348,27 +460,110 @@ def load_config(
         humanize=bool(timing_raw.get("humanize", False)),
     )
 
-    logging_raw = raw.get("logging", {})
+
+def _parse_logging(raw: dict[str, Any]) -> LoggingConfig:
+    logging_raw = raw.get("logging", {}) or {}
     level = str(logging_raw.get("level", "INFO")).upper()
     if level not in _VALID_LOG_LEVELS:
         raise ValueError(
             f"logging.level must be one of {sorted(_VALID_LOG_LEVELS)}, got {level!r}"
         )
-    logging_cfg = LoggingConfig(
+    return LoggingConfig(
         level=level,
         file=logging_raw.get("file", "logs/bot.log"),
     )
 
-    notif_raw = raw.get("notifications", {})
-    notifications = NotificationsConfig(
+
+def _parse_notifications(raw: dict[str, Any]) -> NotificationsConfig:
+    notif_raw = raw.get("notifications", {}) or {}
+    return NotificationsConfig(
         desktop=bool(notif_raw.get("desktop", True)),
         sound=bool(notif_raw.get("sound", True)),
     )
 
+
+# ---------------------------------------------------------------------------
+# Public API.
+# ---------------------------------------------------------------------------
+
+
+def load_config(
+    config_path: str | Path = "config/config.yaml",
+    accounts_path: str | Path = "config/accounts.yaml",
+    *,
+    profile: str | None = None,
+    overrides: dict[str, Any] | None = None,
+    profiles_dir: str | Path | None = None,
+) -> BotConfig:
+    """Load and validate config, applying overlays in order.
+
+    Parameters
+    ----------
+    config_path:
+        Main config YAML.
+    accounts_path:
+        Accounts YAML (optional; env-only auth supported when missing).
+    profile:
+        Name of a profile YAML to overlay on top of the main config. Looked
+        up at ``<profiles_dir>/<name>.yaml``.
+    overrides:
+        Arbitrary nested dict applied last, before env expansion. Produced
+        by :func:`src.cli.parse_set_overrides` for ``--set`` flags.
+    profiles_dir:
+        Directory containing profile YAMLs. Defaults to
+        ``<repo>/config/profiles``.
+    """
+    load_dotenv()
+
+    config_path = Path(config_path)
+    accounts_path = Path(accounts_path)
+    profiles_root = Path(profiles_dir) if profiles_dir else _DEFAULT_PROFILES_DIR
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"Config file {config_path} must be a YAML mapping")
+
+    # 1. Profile overlay. Names come from the explicit kwarg first, then
+    #    from a top-level `profiles: [a, b]` list in the main config (each
+    #    applied in order so the last name wins for conflicting keys).
+    profile_names: list[str] = []
+    config_profiles = raw.get("profiles")
+    if isinstance(config_profiles, list):
+        for entry in config_profiles:
+            if isinstance(entry, str) and entry:
+                profile_names.append(entry)
+    if profile:
+        profile_names.append(profile)
+    # Strip the bookkeeping key so it doesn't bleed into the parsed dict.
+    raw.pop("profiles", None)
+
+    merged: dict[str, Any] = raw
+    for name in profile_names:
+        merged = _deep_merge(merged, _load_profile(name, profiles_root))
+
+    # 2. CLI --set overrides.
+    if overrides:
+        merged = _deep_merge(merged, overrides)
+
+    # 3. ${VAR} env expansion runs last over the fully merged tree so
+    #    placeholders introduced at any layer see the final env values.
+    merged = _expand_env_in_obj(merged)
+
+    # 4. Parse into dataclasses.
+    browser = _parse_browser(merged)
+    events = _parse_events(merged, browser_tz=browser.timezone)
+    tickets = _parse_tickets(merged)
+    checkout = _parse_checkout(merged)
+    timing = _parse_timing(merged)
+    logging_cfg = _parse_logging(merged)
+    notifications = _parse_notifications(merged)
     accounts = _load_accounts(accounts_path)
 
     return BotConfig(
-        event=event,
+        events=events,
         tickets=tickets,
         checkout=checkout,
         timing=timing,
@@ -388,8 +583,7 @@ def _load_accounts(path: Path) -> list[AccountConfig]:
             return [AccountConfig(email=email, password=password, name="env")]
         return []
 
-    with open(path) as f:
-        raw = yaml.safe_load(f) or {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
     accounts_raw = raw.get("accounts", [])
     accounts: list[AccountConfig] = []
@@ -408,3 +602,38 @@ def _load_accounts(path: Path) -> list[AccountConfig]:
             )
         )
     return accounts
+
+
+def config_to_yaml(config: BotConfig) -> str:
+    """Serialize ``BotConfig`` (including all events) back into YAML.
+
+    Used by ``--explain``. ``datetime`` fields are converted to ISO 8601
+    strings so the result is round-trippable through ``yaml.safe_load``.
+    """
+    data = asdict(config)
+    # Drop the @property `event` shim from the output; only emit `events`.
+    data = {k: v for k, v in data.items() if k != "event"}
+    for entry in data.get("events", []):
+        on_sale = entry.get("on_sale_time")
+        if isinstance(on_sale, datetime):
+            entry["on_sale_time"] = on_sale.isoformat()
+    return yaml.safe_dump(data, sort_keys=False)
+
+
+__all__ = [
+    "AccountConfig",
+    "BotConfig",
+    "BrowserConfig",
+    "CheckoutConfig",
+    "DeliveryConfig",
+    "EventConfig",
+    "LoggingConfig",
+    "NotificationsConfig",
+    "PaymentConfig",
+    "SectionTargetConfig",
+    "StealthConfig",
+    "TicketsConfig",
+    "TimingConfig",
+    "config_to_yaml",
+    "load_config",
+]

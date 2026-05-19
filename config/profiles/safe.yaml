@@ -1,0 +1,15 @@
+# ============================================================================
+# Profile: safe
+#
+# Optimized for cautious, supervised runs: humanization enabled, automatic
+# purchase disabled (you confirm the final click manually), and the browser
+# stays open for 20 minutes after the flow so you can review the cart and
+# complete checkout yourself. Apply with `python run.py --profile safe`.
+# ============================================================================
+
+timing:
+  humanize: true
+  hold_open_seconds: 1200
+
+checkout:
+  auto_purchase: false

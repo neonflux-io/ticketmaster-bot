@@ -1,0 +1,12 @@
+# ============================================================================
+# Profile: fast
+#
+# Optimized for on-sale racing: humanization disabled, short overall runtime
+# budget, and the post-flow hold-open window suppressed so the bot exits as
+# soon as a result is known. Apply with `python run.py --profile fast`.
+# ============================================================================
+
+timing:
+  humanize: false
+  max_total_runtime_seconds: 600
+  hold_open_seconds: 0
