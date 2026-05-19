@@ -36,6 +36,11 @@ FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "vendors" / "ticketmaster_sg"
 SESSIONS_DIR = REPO_ROOT / "sessions" / "sg-capture"
 SCREENSHOTS_DIR = REPO_ROOT / "docs" / "recon" / "ticketmaster_sg" / "f7_4_capture"
 
+# Reach the SG selector registry so capture stays in lockstep with the
+# vendor adapter's YAML — no hand-baked CSS in this script.
+sys.path.insert(0, str(REPO_ROOT))
+from src.vendors.ticketmaster_sg import selectors as sg_selectors  # noqa: E402
+
 EVENT_URL = "https://ticketmaster.sg/activity/detail/26sg_pglcs2major"
 HOME_URL = "https://ticketmaster.sg/"
 PROFILE_URL = "https://ticketmaster.sg/profile"
@@ -87,14 +92,21 @@ async def _maybe_login(page, email: str, password: str) -> None:
         return
     _print(f"login page detected (url={current}); filling email")
     try:
-        await page.locator("input#email-input").wait_for(state="visible", timeout=20_000)
-        await page.locator("input#email-input").fill(email)
-        await page.locator("button[name='sign-in']").click()
+        email_input = sg_selectors.locator(page, "login_email_input")
+        await email_input.wait_for(state="visible", timeout=20_000)
+        await email_input.fill(email)
+        await sg_selectors.locator(page, "login_continue_button").click()
         _print("entered email, waiting for password step")
-        await page.locator("input[type='password']").wait_for(state="visible", timeout=30_000)
-        await page.locator("input[type='password']").fill(password)
+        # Password input is rendered as a different step by the SG OAuth
+        # provider (PingFederate); it is not part of the SG selector
+        # registry because the OAuth host (auth.ticketmaster.com) is
+        # outside the SG vendor's DOM scope. A literal locator here is
+        # the documented exception.
+        pw_input = page.locator("input[type='password']")
+        await pw_input.wait_for(state="visible", timeout=30_000)
+        await pw_input.fill(password)
         _print("entered password — pressing Enter (user: solve any captcha if shown)")
-        await page.locator("input[type='password']").press("Enter")
+        await pw_input.press("Enter")
     except Exception as exc:  # noqa: BLE001
         _print(f"login fill warning: {exc}")
 
@@ -188,10 +200,7 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
         await _capture_dom(page, SCREENSHOTS_DIR / "01_event_detail.html")
 
         # Pick the first available "Find tickets" link.
-        find_link = page.locator(
-            "table.auto-game-list tbody tr[data-key] a.btn-primary, "
-            "tr[data-key] a[href*='/ticket/area/']"
-        ).first
+        find_link = sg_selectors.locator(page, "event_find_tickets_link")
         try:
             await find_link.wait_for(state="visible", timeout=30_000)
             href = await find_link.get_attribute("href")
@@ -217,10 +226,16 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
             screenshot=SCREENSHOTS_DIR / "02_ticket_area.png",
         )
 
-        # 3. Choose quantity=2, hit Best Available — retry a few times if needed
+        # 3. Choose quantity=2, hit Best Available — retry a few times if needed.
+        #    Selectors are sourced from the SG registry so the script stays
+        #    in lockstep with config/selectors/ticketmaster_sg.yaml (the live
+        #    DOM renders the quantity <select> as
+        #    ``TicketForm[ticketPrice][<rowId>]`` inside the AJAX-injected
+        #    ``#priceList`` block — NOT ``TicketForm_count`` as the pre-2026
+        #    F7.1 recon mistakenly claimed).
         for attempt in range(1, 4):
             try:
-                qty = page.locator("select#TicketForm_count").first
+                qty = sg_selectors.locator(page, "ticket_area_quantity_select")
                 await qty.wait_for(state="visible", timeout=15_000)
                 await qty.select_option(value="2")
                 _print(f"selected quantity=2 (attempt {attempt})")
@@ -232,7 +247,7 @@ async def main() -> None:  # noqa: C901, PLR0912, PLR0915
                 except Exception:  # noqa: BLE001
                     pass
         try:
-            await page.locator("button#autoMode").first.click()
+            await sg_selectors.locator(page, "ticket_area_best_available_button").click()
             _print("clicked Best Available")
         except Exception as exc:  # noqa: BLE001
             _print(f"could not click Best Available: {exc}")

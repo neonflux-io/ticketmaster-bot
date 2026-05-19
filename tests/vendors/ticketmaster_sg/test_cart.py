@@ -32,11 +32,22 @@ SG_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "vendors" / "ticketmaster_sg
 
 
 async def test_set_quantity_selects_value_on_cart_fixture(chromium_context, fixture_url) -> None:
-    """``set_quantity(page, 4)`` flips the cart-page select to value 4."""
+    """``set_quantity(page, 4)`` flips the cart-page select to value 4.
+
+    The live SG cart page renders the quantity ``<select>`` as
+    ``TicketForm[ticketPrice][<rowId>]`` (id
+    ``TicketForm_ticketPrice_<rowId>``), one per ticket-type row inside
+    ``#ticketPriceList``. The 2026 capture at
+    docs/recon/ticketmaster_sg/f7_4_capture/02_ticket_area.html shows
+    the row id as ``005``, mirrored in the fixture.
+    """
     page = await chromium_context.new_page()
     await page.goto(fixture_url("vendors/ticketmaster_sg/cart.html"))
     assert await set_quantity(page, 4) is True
-    assert await page.locator("select#TicketForm_count").input_value() == "4"
+    assert (
+        await page.locator("select#TicketForm_ticketPrice_005").input_value()
+        == "4"
+    )
 
 
 async def test_set_quantity_returns_false_when_no_select(chromium_context, fixture_url) -> None:
@@ -230,5 +241,5 @@ def test_cart_fixture_is_committed() -> None:
     # The fixture must reference the SG selectors used by cart.py.
     assert "TicketForm_agree" in text
     assert "TicketForm_marketingOptIn" in text
-    assert "TicketForm_count" in text
+    assert "TicketForm_ticketPrice_" in text
     assert "autoMode" in text

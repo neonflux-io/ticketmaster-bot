@@ -7,16 +7,21 @@
 
  The real page renders three blocks that the SG navigator/queue/cart logic
  must read:
-   1. ``#sec-info`` – an event/date <select> (id=``Game[gameId]``) and a
-      quantity <select> (id=``TicketForm_count``) followed by a
-      ``#autoMode`` "Best Available" submit button.
+   1. ``#sec-info`` – an event/date <select> (id=``Game_gameId``) and the
+      ``#autoMode`` "Best Available" submit button rendered after a
+      section is picked.
    2. ``#mapContainer`` – a venue map div populated by AJAX from
       ``/ticket/get-area-map/<gameCode>/<dateId>`` plus the ``zone`` JSON
       payload that describes each clickable area (areaUrl, price, status).
    3. ``#priceList`` – the ticket-type chooser injected by AJAX from
-      ``/ticket/get-area-list/<gameCode>/<dateId>``; once a section is
-      picked the form ``#form-ticket-ticket`` is rendered (see
-      ``ticket_ticket.html`` fixture).
+      ``/ticket/get-area-list/<gameCode>/<dateId>``. The actual quantity
+      ``<select>`` lives INSIDE this section, inside form
+      ``#form-ticket-ticket`` / table ``#ticketPriceList``, one per
+      ticket-type row, named ``TicketForm[ticketPrice][<rowId>]`` (id
+      ``TicketForm_ticketPrice_<rowId>``). The F7.1 recon doc claimed
+      ``TicketForm_count`` here; that id does NOT exist on the live
+      2026 DOM (see docs/recon/ticketmaster_sg/f7_4_capture/
+      02_ticket_area.html for the source-of-truth markup).
 
  The fixture purposefully includes ``zone`` JSON inline so tests can
  confirm that the SG-specific URL pattern ``/ticket/check-captcha/...``
@@ -32,7 +37,7 @@
       <section id="sec-info">
         <h1>PGL CS 2 Major Singapore 2026</h1>
 
-        <select name="Game[gameId]" id="Game_gameId" class="form-select">
+        <select name="gameId" id="gameId" class="form-select">
           <option value="3239" selected>
             10 Dec 2026 (Thu.) 05:00 pm &lt;Singapore Indoor Stadium&gt; PGL CS 2
             Major Singapore 2026
@@ -51,28 +56,6 @@
           </option>
         </select>
 
-        <label for="TicketForm_count">Quantity</label>
-        <select
-          name="TicketForm[count]"
-          id="TicketForm_count"
-          class="form-select"
-        >
-          <option value="0" selected>Please Select</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="7">7</option>
-          <option value="8">8</option>
-          <option value="9">9</option>
-          <option value="10">10</option>
-        </select>
-
-        <button type="button" id="autoMode" class="btn btn-primary">
-          Best Available
-        </button>
       </section>
 
       <div id="mapContainer" style="min-width: 200px; min-height: 200px; display: block;">
@@ -97,7 +80,78 @@
 
       <section id="step2">
         <div id="priceList" class="row-no-gutters text-center">
-          <!-- populated by /ticket/get-area-list AJAX (see ticket_ticket.html for content) -->
+          <!-- Single-section venues auto-pick the only zone, so the live
+               site populates this block immediately. The markup below
+               mirrors the live DOM captured at
+               docs/recon/ticketmaster_sg/f7_4_capture/02_ticket_area.html
+               (lines 685-733). -->
+          <div id="selectedArea" class="alert alert-section text-center mgt-16">
+            The section that you have selected is
+            <strong>
+              <span id="groupName">GEN ADM</span> - GENERAL ADMISSION
+            </strong>
+          </div>
+          <form
+            id="form-ticket-ticket"
+            action="/ticket/ticket/26sg_pglcs2major/3239/1/21"
+            method="post"
+          >
+            <input
+              type="hidden"
+              name="_csrf"
+              value="ticket-area-csrf-placeholder-from-fixture"
+            />
+            <table
+              id="ticketPriceList"
+              class="table table-bordered col-xs-12 mgt-10 text-center"
+            >
+              <thead>
+                <tr>
+                  <th class="col-sm-3">Ticket Type</th>
+                  <th class="col-sm-2">Price</th>
+                  <th class="col-sm-2">Quantity</th>
+                  <th class="col-sm-5">Ticket Info</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr id="pt-005">
+                  <td class="text-bold ticketpricetext">Standard</td>
+                  <td>$144.00</td>
+                  <td>
+                    <select
+                      id="TicketForm_ticketPrice_005"
+                      class="w100 form-select"
+                      name="TicketForm[ticketPrice][005]"
+                    >
+                      <option value="0">Please Select</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                    </select>
+                    <input
+                      type="hidden"
+                      id="TicketForm_priceSize_005"
+                      name="TicketForm[priceSize][005]"
+                      value="1"
+                    />
+                  </td>
+                  <td class="text-start ticketnote"></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="text-center">
+              <button type="button" id="autoMode" class="btn btn-primary">
+                Best Available
+              </button>
+            </div>
+          </form>
         </div>
       </section>
     </main>

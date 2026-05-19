@@ -39,14 +39,31 @@ event_date_select:
 
 # Top-of-page date/event <select>. The bot reads its value, the user can
 # also change it to pick a different show.
+#
+# The 2026 live capture (docs/recon/ticketmaster_sg/f7_4_capture/
+# 02_ticket_area.html line 396) renders this as
+# ``<select id="gameId" name="gameId">`` — flat names, NOT the Yii-style
+# ``Game[gameId]`` the F7.1 recon documented. Both are listed so a
+# stale (pre-2026) render is still matched.
 ticket_area_event_select:
+  - "select#gameId"
+  - "select[name='gameId']"
   - "select#Game_gameId"
   - "select[name='Game[gameId]']"
 
 # Quantity <select> on the area page (1..max-per-customer).
+#
+# F7.1 recon documented this as ``select#TicketForm_count`` but the
+# live 2026 DOM (captured under docs/recon/ticketmaster_sg/f7_4_capture/
+# 02_ticket_area.html) shows that select is per-ticket-type, lives
+# inside the AJAX-injected ``#priceList`` form, and is named
+# ``TicketForm[ticketPrice][<rowId>]`` (id ``TicketForm_ticketPrice_<rowId>``).
+# The fallbacks below match the live DOM; the row-id is whatever the
+# server emits (e.g. ``005``).
 ticket_area_quantity_select:
-  - "select#TicketForm_count"
-  - "select[name='TicketForm[count]']"
+  - "select[name^='TicketForm[ticketPrice]']"
+  - "select[id^='TicketForm_ticketPrice_']"
+  - "table#ticketPriceList tbody tr select"
 
 # "Best Available" submit button on the area page.
 ticket_area_best_available_button:
@@ -201,11 +218,17 @@ queue_position_text:
 # and check-captcha pages (see docs/recon/ticketmaster_sg.md and the
 # banner-comment in tests/fixtures/vendors/ticketmaster_sg/cart.html).
 
-# Quantity dropdown on the cart page (same select[name='TicketForm[count]']
-# the live ticket-area page uses pre-cart).
+# Quantity dropdown on the cart / pre-cart ticket-area page.
+#
+# The SG site renders the quantity selector inside the AJAX-injected
+# ``#priceList`` form (table ``#ticketPriceList``), one ``<select>`` per
+# ticket-type row, named ``TicketForm[ticketPrice][<rowId>]`` (id
+# ``TicketForm_ticketPrice_<rowId>``). Matches the live DOM at
+# docs/recon/ticketmaster_sg/f7_4_capture/02_ticket_area.html.
 cart_quantity_select:
-  - "select#TicketForm_count"
-  - "select[name='TicketForm[count]']"
+  - "select[name^='TicketForm[ticketPrice]']"
+  - "select[id^='TicketForm_ticketPrice_']"
+  - "table#ticketPriceList tbody tr select"
 
 # Terms-of-purchase checkbox. The SG site reuses input#TicketForm_agree
 # (the same id seen on /ticket/check-captcha/).

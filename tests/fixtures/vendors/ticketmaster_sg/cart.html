@@ -30,8 +30,14 @@
      docs/recon/ticketmaster_sg.md and the 04_captcha.html snapshot.
    * Cart URL pattern is /ticket/checkout/: confirmed by the recon
      URL-pattern table ("ticketmaster.sg/ticket/checkout/...").
-   * Quantity field is select[name='TicketForm[count]']: confirmed by
-     the ticket_area.html fixture.
+   * Quantity field is select[name^='TicketForm[ticketPrice]']: the
+     live ticket-area DOM (docs/recon/ticketmaster_sg/f7_4_capture/
+     02_ticket_area.html) renders one quantity <select> per ticket-type
+     row inside ``#priceList`` / ``#ticketPriceList`` form, named
+     ``TicketForm[ticketPrice][<rowId>]`` (id
+     ``TicketForm_ticketPrice_<rowId>``). The pre-2026 F7.1 recon
+     incorrectly listed ``TicketForm_count``; the fixture below mirrors
+     the live 2026 markup.
 
  The live DOM capture is tracked as a follow-up by F7.6 (live e2e),
  which already plans to drive a headed Chromium with the user's creds
@@ -72,8 +78,8 @@
           />
 
           <table
-            id="cartTable"
-            class="table table-bordered text-center mgt-16"
+            id="ticketPriceList"
+            class="table table-bordered text-center mgt-16 cartTable"
           >
             <thead>
               <tr>
@@ -84,15 +90,16 @@
               </tr>
             </thead>
             <tbody>
-              <tr id="cart-row-005" class="ticket-row">
+              <tr id="pt-005" class="ticket-row">
                 <td class="ticketpricetext">Standard</td>
                 <td>
-                  <label class="visually-hidden" for="TicketForm_count">Quantity</label>
+                  <label class="visually-hidden" for="TicketForm_ticketPrice_005">Quantity</label>
                   <select
-                    name="TicketForm[count]"
-                    id="TicketForm_count"
-                    class="form-select"
+                    name="TicketForm[ticketPrice][005]"
+                    id="TicketForm_ticketPrice_005"
+                    class="w100 form-select"
                   >
+                    <option value="0">Please Select</option>
                     <option value="1">1</option>
                     <option value="2" selected>2</option>
                     <option value="3">3</option>
@@ -100,6 +107,12 @@
                     <option value="5">5</option>
                     <option value="6">6</option>
                   </select>
+                  <input
+                    type="hidden"
+                    id="TicketForm_priceSize_005"
+                    name="TicketForm[priceSize][005]"
+                    value="1"
+                  />
                 </td>
                 <td class="text-end">$144.00</td>
                 <td class="text-end text-bold">$288.00</td>
