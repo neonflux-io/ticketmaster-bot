@@ -13,6 +13,7 @@ from ..registry import notifiers as _notifier_registry
 from .base import Notifier, NotifierError, NotifyEvent
 from .desktop import DesktopNotifier
 from .discord import DiscordNotifier
+from .slack import SlackNotifier
 from .telegram import TelegramNotifier
 from .webhook import WebhookNotifier
 
@@ -29,6 +30,7 @@ def _register_default_notifiers() -> None:
         "webhook": WebhookNotifier,
         "discord": DiscordNotifier,
         "telegram": TelegramNotifier,
+        "slack": SlackNotifier,
     }
     for name, cls in defaults.items():
         if name in _notifier_registry.registry:
@@ -45,6 +47,7 @@ __all__ = [
     "Notifier",
     "NotifierError",
     "NotifyEvent",
+    "SlackNotifier",
     "TelegramNotifier",
     "WebhookNotifier",
 ]
