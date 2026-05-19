@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
 from playwright.async_api import async_playwright
@@ -31,9 +32,36 @@ log = logging.getLogger("ticketmaster-bot")
 
 
 class BotRunner:
-    """Orchestrates the entire ticket-buying flow for one account."""
+    """Orchestrates the entire ticket-buying flow for one account.
 
-    def __init__(self, config: BotConfig, account: AccountConfig | None = None) -> None:
+    The per-step modules (``auth``, ``cart``, ``checkout``, ``navigator``,
+    ``queue``) are bound as instance attributes so vendor-specific
+    subclasses (e.g. :class:`src.vendors.ticketmaster_sg.core.BotRunner`)
+    can swap in their own step modules without re-implementing the
+    state machine. The defaults are the Ticketmaster (US) modules from
+    the same package.
+    """
+
+    #: Class-level binding for the per-step modules. Subclasses override
+    #: any subset by setting class attributes; ``__init__`` falls back
+    #: to these for anything the subclass did not bind.
+    auth_module: ModuleType = auth
+    cart_module: ModuleType = cart
+    checkout_module: ModuleType = checkout
+    navigator_module: ModuleType = navigator
+    queue_module: ModuleType = queue
+
+    def __init__(
+        self,
+        config: BotConfig,
+        account: AccountConfig | None = None,
+        *,
+        auth_module: ModuleType | None = None,
+        cart_module: ModuleType | None = None,
+        checkout_module: ModuleType | None = None,
+        navigator_module: ModuleType | None = None,
+        queue_module: ModuleType | None = None,
+    ) -> None:
         self.config = config
         self.account = account or (config.accounts[0] if config.accounts else None)
         delays = config.timing.action_delay_seconds
@@ -53,6 +81,19 @@ class BotRunner:
         # Populated lazily inside ``_run`` when HAR recording is on so
         # hooks / tests can resolve the per-run artefact directory.
         self.artifact_dir: RunArtifactDir | None = None
+        # Bind per-step modules. Constructor kwargs win over class
+        # attributes so callers can also inject step modules ad hoc
+        # (e.g. in tests). Without any override, the US modules
+        # imported at the top of this file are used.
+        self.auth = auth_module if auth_module is not None else type(self).auth_module
+        self.cart = cart_module if cart_module is not None else type(self).cart_module
+        self.checkout = (
+            checkout_module if checkout_module is not None else type(self).checkout_module
+        )
+        self.navigator = (
+            navigator_module if navigator_module is not None else type(self).navigator_module
+        )
+        self.queue = queue_module if queue_module is not None else type(self).queue_module
 
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
@@ -223,7 +264,7 @@ class BotRunner:
 
         # 1. Ensure we're logged in
         if self.account:
-            logged_in = await auth.is_logged_in(context)
+            logged_in = await self.auth.is_logged_in(context)
             if not logged_in:
                 log.info("Not logged in - performing login")
                 humanize_cfg = cfg.timing.humanize
@@ -233,7 +274,7 @@ class BotRunner:
                     else None
                 )
                 await self.lifecycle.fire("before_login", self, account=self.account.name)
-                await auth.login(
+                await self.auth.login(
                     context,
                     self.account,
                     action_delay=(self.action_delay_min, self.action_delay_max),
@@ -252,13 +293,13 @@ class BotRunner:
 
         # 2. Navigate to event page
         await self.lifecycle.fire("before_navigate", self, url=cfg.event.url)
-        await navigator.open_event(
+        await self.navigator.open_event(
             page, cfg.event.url, timeout_seconds=cfg.timing.page_timeout_seconds
         )
 
         # 3. Wait for on-sale (no-op if already on sale)
         if cfg.event.on_sale_time is not None:
-            await navigator.wait_until_on_sale(
+            await self.navigator.wait_until_on_sale(
                 page,
                 cfg.event.on_sale_time,
                 refresh_interval_seconds=cfg.event.refresh_interval_seconds,
@@ -267,15 +308,15 @@ class BotRunner:
 
         # 4. Handle queue if present (do NOT reload after release - we'd lose
         #    the queue token and get dumped back into the waiting room)
-        state = await navigator.detect_state(page)
+        state = await self.navigator.detect_state(page)
         log.info("Initial page state: %s", state)
         if state == "queue":
-            await queue.wait_through_queue(
+            await self.queue.wait_through_queue(
                 page,
                 check_interval_seconds=cfg.timing.queue_check_interval_seconds,
                 max_wait_seconds=cfg.timing.max_total_runtime_seconds,
             )
-            state = await navigator.detect_state(page)
+            state = await self.navigator.detect_state(page)
             log.info("Post-queue page state: %s", state)
             await self.lifecycle.fire("after_queue_release", self, state=state)
         else:
@@ -322,11 +363,11 @@ class BotRunner:
 
         # 6. Set quantity & add to cart
         await self._delay()
-        await cart.set_quantity(page, cfg.tickets.quantity)
+        await self.cart.set_quantity(page, cfg.tickets.quantity)
         await self._delay()
 
         await self.lifecycle.fire("before_cart", self, candidate=chosen)
-        added = await cart.add_to_cart(
+        added = await self.cart.add_to_cart(
             page,
             action_delay=(self.action_delay_min, self.action_delay_max),
             timeout_seconds=cfg.timing.page_timeout_seconds,
@@ -353,7 +394,7 @@ class BotRunner:
         await self.lifecycle.fire("before_checkout", self, candidate=chosen)
         if cfg.checkout.auto_purchase:
             await self.lifecycle.fire("before_place_order", self, candidate=chosen)
-        success = await checkout.run_checkout(
+        success = await self.checkout.run_checkout(
             page,
             auto_purchase=cfg.checkout.auto_purchase,
             card_last_four=cfg.checkout.payment.card_last_four,

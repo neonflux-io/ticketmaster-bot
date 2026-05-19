@@ -215,10 +215,14 @@ def build_parser() -> argparse.ArgumentParser:
     # --- Vendor selection -------------------------------------------------
     p.add_argument(
         "--vendor",
-        default="ticketmaster",
+        default=None,
         help=(
-            "Vendor adapter to use (default: ticketmaster). "
-            "Must be registered with src.registry.vendors."
+            "Vendor adapter to use. When omitted, the vendor is "
+            "auto-detected from the first event URL's host: a "
+            "'ticketmaster.sg' URL picks the SG adapter, anything else "
+            "(including ticketmaster.com) picks the default US/CA "
+            "Ticketmaster adapter. Must be registered with "
+            "src.registry.vendors."
         ),
     )
 

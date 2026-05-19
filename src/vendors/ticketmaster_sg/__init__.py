@@ -1,24 +1,35 @@
 """Ticketmaster Singapore vendor adapter package.
 
-Imports the per-step modules so callers can do
-``from src.vendors.ticketmaster_sg import auth, cart, checkout, navigator, queue``.
+Importing this package has a side effect: it registers
+:class:`TicketmasterSGAdapter` with :mod:`src.registry.vendors` under
+the name ``"ticketmaster_sg"``. The registration is idempotent so a
+second import (or a registry reload during testing) is a no-op.
 
-This package does *not* register a :class:`VendorAdapter` yet — that is
-the responsibility of F7.5, which adds :mod:`adapter` plus a
-:func:`src.registry.vendors.register` call here. F7.3 + F7.4 ship the
-per-step modules (auth / navigator / queue / cart / checkout) so
-subsequent features can build on them.
+Callers can do::
+
+    from src.registry import vendors
+    Adapter = vendors.get("ticketmaster_sg")
+    runner = Adapter().build_runner(config, account=acct)
 """
 
 from __future__ import annotations
 
-from . import auth, cart, checkout, navigator, price, queue
+from src.registry import vendors as _vendor_registry
+
+from . import auth, cart, checkout, core, navigator, price, queue
+from .adapter import TicketmasterSGAdapter
 from .selectors import locator, locator_multi, selector_for
 
+# Idempotent registration so re-import during test reloads does not raise.
+if "ticketmaster_sg" not in _vendor_registry.registry:
+    _vendor_registry.register("ticketmaster_sg", TicketmasterSGAdapter)
+
 __all__ = [
+    "TicketmasterSGAdapter",
     "auth",
     "cart",
     "checkout",
+    "core",
     "locator",
     "locator_multi",
     "navigator",

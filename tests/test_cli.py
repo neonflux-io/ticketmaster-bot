@@ -74,7 +74,9 @@ def test_build_parser_defaults_cover_every_documented_flag():
     assert ns.profile is None
     assert ns.set_overrides == []
     assert ns.events == []
-    assert ns.vendor == "ticketmaster"
+    # ``vendor`` defaults to None — the actual adapter is auto-detected
+    # from the first event URL's host in src/main.py (see F7.5).
+    assert ns.vendor is None
     assert ns.parallel is False
     assert ns.max_parallel is None
     assert ns.stagger_seconds is None

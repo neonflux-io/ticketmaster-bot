@@ -13,6 +13,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 # Allow `python src/main.py` and `python -m src.main` both to work
 _here = Path(__file__).resolve().parent
@@ -24,15 +25,41 @@ from src.registry import vendors as vendor_registry  # noqa: E402
 from src.utils.config_loader import config_to_yaml, load_config  # noqa: E402
 from src.utils.logger import setup_logger  # noqa: E402
 
+#: Default vendor adapter name when no host-specific match is found.
+DEFAULT_VENDOR = "ticketmaster"
+
+#: Mapping from event-URL host suffix to vendor adapter name. Order
+#: matters: the first suffix that matches the URL's host wins. Generic
+#: hosts (like ``ticketmaster.com``) are intentionally absent — anything
+#: not matched here falls through to :data:`DEFAULT_VENDOR`.
+_HOST_VENDOR_MAP: tuple[tuple[str, str], ...] = (("ticketmaster.sg", "ticketmaster_sg"),)
+
+
+def detect_vendor_for_url(url: str) -> str:
+    """Return the vendor adapter name implied by ``url``'s host.
+
+    Lookup is suffix-based: ``ticketmaster.sg`` and any subdomain
+    thereof (``www.ticketmaster.sg``, ``my.ticketmaster.sg``) pick the
+    SG adapter. URLs whose host doesn't match any entry in
+    :data:`_HOST_VENDOR_MAP` fall through to :data:`DEFAULT_VENDOR`.
+    """
+    host = (urlparse(url).hostname or "").lower()
+    if not host:
+        return DEFAULT_VENDOR
+    for suffix, vendor in _HOST_VENDOR_MAP:
+        if host == suffix or host.endswith("." + suffix):
+            return vendor
+    return DEFAULT_VENDOR
+
 
 def _resolve_vendor_adapter(name: str) -> Any:
     """Look up the vendor adapter class for ``name`` or raise ValueError.
 
-    The shipped Ticketmaster adapter is registered as a side effect of
+    The shipped Ticketmaster adapters are registered as a side effect of
     importing :mod:`src.vendors` (which we import here lazily so a CLI
     failure path doesn't pay the import cost twice).
     """
-    import src.vendors  # noqa: F401  (registers TicketmasterAdapter)
+    import src.vendors  # noqa: F401  (registers all VendorAdapters)
 
     try:
         return vendor_registry.get(name)
@@ -49,12 +76,15 @@ async def main_async(args: argparse.Namespace | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     bootstrap_log = logging.getLogger("ticketmaster-bot")
 
-    # --- 1. Vendor validation up front ---------------------------------
-    try:
-        adapter_cls = _resolve_vendor_adapter(args.vendor)
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    # --- 1. Validate an explicit --vendor up front. Auto-detection
+    #        defers until step 5 (after the config tells us the URL).
+    adapter_cls: Any | None = None
+    if args.vendor is not None:
+        try:
+            adapter_cls = _resolve_vendor_adapter(args.vendor)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     # --- 2. Parse --set overrides --------------------------------------
     try:
@@ -89,7 +119,22 @@ async def main_async(args: argparse.Namespace | None = None) -> int:
     if args.auto_purchase is not None:
         config.checkout.auto_purchase = args.auto_purchase
 
-    # --- 5. --explain prints resolved YAML and exits --------------------
+    # --- 5. Vendor auto-detection (only when --vendor wasn't passed) ---
+    # The first configured event URL's host decides whether to use the
+    # SG adapter (`ticketmaster.sg`) or fall back to the default US/CA
+    # Ticketmaster adapter.
+    if adapter_cls is None:
+        vendor_name = detect_vendor_for_url(config.events[0].url)
+        try:
+            adapter_cls = _resolve_vendor_adapter(vendor_name)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        resolved_vendor = vendor_name
+    else:
+        resolved_vendor = args.vendor
+
+    # --- 6. --explain prints resolved YAML and exits --------------------
     # Logging is intentionally NOT reconfigured first so that stdout
     # contains only the resolved YAML.
     if args.explain:
@@ -104,7 +149,7 @@ async def main_async(args: argparse.Namespace | None = None) -> int:
     )
     log.info("=" * 60)
     log.info("Ticketmaster Bot starting")
-    log.info("Vendor: %s", args.vendor)
+    log.info("Vendor: %s", resolved_vendor)
     for i, evt in enumerate(config.events, start=1):
         log.info("Event %d: %s", i, evt.url)
     log.info(
