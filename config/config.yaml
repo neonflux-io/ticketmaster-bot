@@ -1,0 +1,107 @@
+# ============================================================================
+# Ticketmaster Bot Configuration
+# ============================================================================
+
+event:
+  # The Ticketmaster event URL.
+  url: "https://www.ticketmaster.com/event/REPLACE_WITH_EVENT_ID"
+
+  # Optional: ISO 8601. If you include an offset (e.g. ...-05:00) that is used;
+  # if naive, the bot localizes it using browser.timezone below.
+  # Example: "2026-06-01T10:00:00-05:00"
+  on_sale_time: null
+
+  # How often to refresh the page while waiting for tickets to go on sale.
+  refresh_interval_seconds: 2
+
+  # If true, reject event URLs whose host is not in the known-Ticketmaster
+  # / Live Nation allowlist. Set false to allow other regional hosts.
+  strict_host: false
+
+tickets:
+  # Number of tickets to attempt to purchase (1-8).
+  quantity: 2
+
+  # Selection strategy: cheapest | best_available | section_target.
+  strategy: "cheapest"
+
+  # Only used when strategy: section_target.
+  section_target:
+    section: null          # e.g. "108"
+    row_range: null        # e.g. ["A", "Z"] (inclusive, lexicographic)
+    price_level_id: null   # e.g. "PL1"
+
+  # Skip if cheapest ticket exceeds this dollar amount (null = no limit).
+  max_price: null
+
+  # Prefer accessible/ADA seating.
+  accessible_seats: false
+
+checkout:
+  # If false, bot stops after tickets are in cart so you can review/confirm.
+  # If true, bot clicks "Place Order" automatically. USE WITH CAUTION.
+  auto_purchase: false
+
+  # Tolerance for the pre-purchase cart-verification check. The cart subtotal
+  # is allowed to exceed (qty * picked_price) by up to (0.5 + price_tolerance)
+  # to account for fees, and may not be lower than 1 - price_tolerance.
+  price_tolerance: 0.05
+
+  payment:
+    # Last 4 digits of a saved card to select. null = let TM pick default.
+    card_last_four: null
+
+  delivery:
+    # Substrings matched (case-insensitive) against delivery option labels.
+    # First match wins.
+    preferred:
+      - "mobile entry"
+      - "mobile ticket"
+      - "ticketfast"
+      - "email delivery"
+      - "e-ticket"
+    # If no preferred match is visible, fall back to the first delivery radio.
+    # Leave false to avoid accidentally selecting expensive mail-delivery options.
+    allow_any: false
+
+timing:
+  page_timeout_seconds: 30
+  queue_check_interval_seconds: 5
+  # Random delay range between human-like actions [min, max], used when
+  # humanize: true. When humanize: false (default) these are not applied.
+  action_delay_seconds: [0.5, 2.0]
+  # When true, the bot inserts randomized delays between actions to mimic a
+  # human. Off by default because on-sale racing wants to be fast.
+  humanize: false
+  # Hard cap on total runtime.
+  max_total_runtime_seconds: 3600
+  # When the browser is visible and auto_purchase is false, keep the window
+  # open this long so you can complete checkout manually. Closes early if
+  # you close the window yourself.
+  hold_open_seconds: 600
+
+browser:
+  headless: false               # Set true only after you've confirmed a working flow.
+  slow_mo_ms: 0
+  user_data_dir: "sessions/default"
+  locale: "en-US"
+  timezone: "America/New_York"
+
+  # Browser-fingerprint hardening. Removes the most obvious automation tells
+  # (navigator.webdriver, missing plugins/languages, WebGL vendor) and lets you
+  # override the UA and headers. Not a guarantee against detection.
+  stealth:
+    enabled: true
+    user_agent: null            # null = random pick from a small modern Chrome pool
+    extra_http_headers: {}
+    webgl_vendor: "Intel Inc."
+    webgl_renderer: "Intel Iris OpenGL Engine"
+    viewport_jitter: 30         # +/- pixels added to default 1366x900 at launch
+
+logging:
+  level: "INFO"                 # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  file: "logs/bot.log"
+
+notifications:
+  desktop: true
+  sound: true

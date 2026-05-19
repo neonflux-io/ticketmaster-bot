@@ -1,0 +1,27 @@
+# Secrets
+.env
+config/accounts.yaml
+
+# Browser sessions (contain auth cookies)
+sessions/*
+!sessions/.gitkeep
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

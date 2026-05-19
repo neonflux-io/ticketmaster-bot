@@ -1,0 +1,19 @@
+# ============================================================================
+# Ticketmaster Account Credentials
+#
+# Copy this file to `accounts.yaml` and fill in your details.
+# DO NOT commit accounts.yaml to git.
+#
+# You can also reference env vars with ${VAR_NAME}, or use a .env file
+# with TM_EMAIL/TM_PASSWORD to skip this file entirely.
+# ============================================================================
+
+accounts:
+  - name: "primary"
+    email: "you@example.com"
+    password: "${TM_PASSWORD}"   # Or hardcode (less secure)
+
+  # Add more for parallel runs
+  # - name: "backup"
+  #   email: "you+backup@example.com"
+  #   password: "${TM_PASSWORD_BACKUP}"
