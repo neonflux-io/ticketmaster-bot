@@ -13,11 +13,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..registry import strategies as _strategy_registry
+from .accessible import AccessibleStrategy
 from .base import SelectionStrategy
 from .best_available import BestAvailableStrategy
 from .cheapest import CheapestStrategy
 from .multi_section import MultiSectionStrategy
 from .price_range import PriceRangeStrategy
+from .seat_quality import SeatQualityStrategy
 from .section_target import SectionTargetStrategy
 
 if TYPE_CHECKING:
@@ -38,6 +40,8 @@ def _register_default_strategies() -> None:
         "section_target": SectionTargetStrategy,
         "price_range": PriceRangeStrategy,
         "multi_section": MultiSectionStrategy,
+        "accessible": AccessibleStrategy,
+        "seat_quality": SeatQualityStrategy,
     }
     for name, cls in defaults.items():
         if name in _strategy_registry.registry:
@@ -65,4 +69,11 @@ def build_strategy(cfg: TicketsConfig) -> SelectionStrategy:
             sections=list(cfg.multi_section.sections),
             max_price=cfg.max_price,
         )
+    if cfg.strategy == "accessible":
+        return AccessibleStrategy(
+            max_price=cfg.max_price,
+            accessible_seats=cfg.accessible_seats,
+        )
+    if cfg.strategy == "seat_quality":
+        return SeatQualityStrategy(max_price=cfg.max_price)
     raise ValueError(f"Unknown strategy: {cfg.strategy!r}")

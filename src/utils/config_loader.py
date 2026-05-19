@@ -458,6 +458,8 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
         "section_target",
         "price_range",
         "multi_section",
+        "accessible",
+        "seat_quality",
     }
     if tickets.strategy not in valid_strategies:
         raise ValueError(

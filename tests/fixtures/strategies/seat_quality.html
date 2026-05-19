@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Seat Quality — Strategy Test Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 16px; }
+    [data-bdd='quick-picks-list'] { list-style: none; padding: 0; margin: 0; }
+    [data-bdd='quick-pick-row'] {
+      display: block;
+      padding: 12px 16px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      user-select: none;
+    }
+    [data-bdd='order-summary'] { margin-top: 24px; padding: 8px; background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <h1 data-bdd="event-title">Test Event — Seat Quality Fixture</h1>
+
+    <ul data-bdd="quick-picks-list">
+      <li data-bdd="quick-pick-row" data-price-level-id="PL1" data-idx="0">
+        Section 500 Row Z — Upper deck — $40.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL2" data-idx="1">
+        Section 300 Row K — Aisle seat — $120.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL3" data-idx="2">
+        Section 200 Row F — Front aisle — $200.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL4" data-idx="3" data-quality-score="9">
+        Section 100 Row C — Floor Center Front Aisle — $400.00 each
+      </li>
+      <li data-bdd="quick-pick-row" data-price-level-id="PL5" data-idx="4">
+        Section 150 Row B — Floor Center — $350.00 each
+      </li>
+    </ul>
+
+    <section data-bdd="order-summary">Subtotal $0.00</section>
+  </main>
+
+  <script>
+    // Click recorder so tests can assert "row N was clicked exactly once".
+    window.__clicks = [];
+    document.addEventListener('click', function (event) {
+      var row = event.target.closest('[data-bdd="quick-pick-row"]');
+      if (!row) return;
+      var idx = row.getAttribute('data-idx');
+      window.__clicks.push(idx);
+      var prev = parseInt(row.getAttribute('data-click-count') || '0', 10);
+      row.setAttribute('data-click-count', String(prev + 1));
+    }, true);
+  </script>
+</body>
+</html>

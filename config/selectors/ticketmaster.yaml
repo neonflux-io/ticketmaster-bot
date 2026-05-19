@@ -16,6 +16,13 @@ quick_pick_row:
   - "[data-bdd='ticket-list'] li"
   - ".quick-picks li"
 
+# Accessible-seat markers. Resolved as a *child* of a quick-pick-row, or
+# as an attribute on the row itself. Used by ``AccessibleStrategy`` to
+# decide whether a row qualifies as wheelchair / accessible-seating.
+accessible_seat_marker:
+  - "[data-bdd='accessible-seat']"
+  - "[aria-label*='accessible' i]"
+
 quick_picks_list:
   - "[data-bdd='quick-picks-list']"
 
