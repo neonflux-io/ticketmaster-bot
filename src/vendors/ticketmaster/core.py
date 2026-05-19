@@ -106,10 +106,17 @@ class BotRunner:
             logged_in = await auth.is_logged_in(context)
             if not logged_in:
                 log.info("Not logged in - performing login")
+                humanize_cfg = cfg.timing.humanize
+                typing_cfg = (
+                    humanize_cfg.typing
+                    if humanize_cfg.enabled and humanize_cfg.typing.enabled
+                    else None
+                )
                 await auth.login(
                     context,
                     self.account,
                     action_delay=(self.action_delay_min, self.action_delay_max),
+                    typing_cfg=typing_cfg,
                 )
             else:
                 log.info("Existing session detected for %s", self.account.name)

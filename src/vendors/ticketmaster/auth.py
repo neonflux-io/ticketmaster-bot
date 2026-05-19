@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from ...humanize.typing import human_type
 from ...registry import selectors as selector_registry
 from ...registry.selectors import locator
 from ...utils.retry import random_human_delay
@@ -13,7 +14,7 @@ from ...utils.retry import random_human_delay
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, FrameLocator, Page
 
-    from ...utils.config_loader import AccountConfig
+    from ...utils.config_loader import AccountConfig, HumanizeTypingConfig
 
 log = logging.getLogger("ticketmaster-bot")
 
@@ -141,10 +142,42 @@ async def _resolve_auth_scope(page: Page) -> Page | FrameLocator:
     return page
 
 
+async def _enter_credential(
+    target,  # noqa: ANN001 - Playwright Locator
+    value: str,
+    *,
+    typing_cfg: HumanizeTypingConfig | None,
+) -> None:
+    """Fill a credential field, optionally via :func:`human_type`.
+
+    When ``typing_cfg`` is provided and its ``enabled`` flag is true,
+    we type the value character-by-character with a normal-distribution
+    delay so the keystroke timing looks human. Otherwise we fall back
+    to ``locator.fill(value)`` which is instant.
+    """
+    if typing_cfg is not None and typing_cfg.enabled:
+        # Clear any prefilled value so the typed result matches `value` exactly.
+        try:
+            await target.fill("")
+        except Exception:  # noqa: BLE001
+            # Best-effort clear; some inputs reject fill("") but accept type.
+            pass
+        await human_type(
+            target,
+            value,
+            mean_ms=typing_cfg.mean_ms,
+            std_ms=typing_cfg.std_ms,
+            min_ms=typing_cfg.min_ms,
+        )
+    else:
+        await target.fill(value)
+
+
 async def login(
     context: BrowserContext,
     account: AccountConfig,
     action_delay: tuple[float, float] = (0.5, 2.0),
+    typing_cfg: HumanizeTypingConfig | None = None,
 ) -> None:
     """Perform interactive login through the Ticketmaster auth flow."""
     page = await context.new_page()
@@ -170,11 +203,11 @@ async def login(
         await email_locator.wait_for(state="visible", timeout=20000)
 
         log.info("Filling credentials for %s", account.name)
-        await email_locator.fill(account.email)
+        await _enter_credential(email_locator, account.email, typing_cfg=typing_cfg)
         await random_human_delay(*action_delay)
 
         password_locator = locator(scope, "login_password_input")
-        await password_locator.fill(account.password)
+        await _enter_credential(password_locator, account.password, typing_cfg=typing_cfg)
         await random_human_delay(*action_delay)
 
         submit = locator(scope, "login_submit_button")

@@ -170,13 +170,23 @@ class HumanizeMouseConfig:
 
 
 @dataclass
+class HumanizeTypingConfig:
+    """Per-keystroke settings for :func:`src.humanize.typing.human_type`."""
+
+    enabled: bool = True
+    mean_ms: int = 70
+    std_ms: int = 25
+    min_ms: int = 20
+
+
+@dataclass
 class HumanizeConfig:
     """Container for humanisation subsystems.
 
     ``enabled`` acts as the master switch and preserves the historic
-    ``timing.humanize: true|false`` shape; sub-blocks (``mouse``, future
-    ``typing``, ``warmer``…) carry their own ``enabled`` flag so any
-    subsystem can be disabled independently.
+    ``timing.humanize: true|false`` shape; sub-blocks (``mouse``,
+    ``typing``, future ``warmer``…) carry their own ``enabled`` flag so
+    any subsystem can be disabled independently.
 
     ``__bool__`` returns ``enabled`` so the existing call-sites
     (``if cfg.timing.humanize:`` / ``bool(cfg.timing.humanize)``) keep
@@ -185,6 +195,7 @@ class HumanizeConfig:
 
     enabled: bool = False
     mouse: HumanizeMouseConfig = field(default_factory=HumanizeMouseConfig)
+    typing: HumanizeTypingConfig = field(default_factory=HumanizeTypingConfig)
 
     def __bool__(self) -> bool:  # pragma: no cover - trivial
         return bool(self.enabled)
@@ -778,9 +789,31 @@ def _parse_humanize(raw: Any) -> HumanizeConfig:
         delay_ms_min=delay_ms_min,
         delay_ms_max=delay_ms_max,
     )
+    typing_raw = raw.get("typing", {}) or {}
+    if not isinstance(typing_raw, dict):
+        raise ValueError(
+            f"timing.humanize.typing must be a mapping, got {type(typing_raw).__name__}"
+        )
+    typing_defaults = HumanizeTypingConfig()
+    mean_ms = int(typing_raw.get("mean_ms", typing_defaults.mean_ms))
+    std_ms = int(typing_raw.get("std_ms", typing_defaults.std_ms))
+    min_ms = int(typing_raw.get("min_ms", typing_defaults.min_ms))
+    if mean_ms <= 0:
+        raise ValueError("timing.humanize.typing.mean_ms must be > 0")
+    if std_ms < 0:
+        raise ValueError("timing.humanize.typing.std_ms must be >= 0")
+    if min_ms < 0:
+        raise ValueError("timing.humanize.typing.min_ms must be >= 0")
+    typing_cfg = HumanizeTypingConfig(
+        enabled=bool(typing_raw.get("enabled", typing_defaults.enabled)),
+        mean_ms=mean_ms,
+        std_ms=std_ms,
+        min_ms=min_ms,
+    )
     return HumanizeConfig(
         enabled=bool(raw.get("enabled", False)),
         mouse=mouse_cfg,
+        typing=typing_cfg,
     )
 
 
@@ -977,6 +1010,7 @@ __all__ = [
     "EventConfig",
     "HumanizeConfig",
     "HumanizeMouseConfig",
+    "HumanizeTypingConfig",
     "InnerStrategyConfig",
     "LoggingConfig",
     "MultiSectionConfig",
