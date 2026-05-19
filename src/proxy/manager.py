@@ -49,7 +49,7 @@ def parse_proxy_url(url: str) -> dict[str, str]:
     """Parse a proxy URL into Playwright's ``proxy=`` kwarg shape.
 
     Accepts URLs in the standard form
-    ``scheme://[user[:password]@]host[:port][/path]``. The ``scheme://``
+    ``scheme://[USER[:PASSWORD]@]host[:port][/path]``. The ``scheme://``
     prefix is required; bare ``host:port`` is rejected because
     Playwright's ProxySettings explicitly requires a scheme.
 

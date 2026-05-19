@@ -142,4 +142,4 @@ notifications:
 proxy:
   enabled: false
   policy: "sticky"          # sticky | round_robin
-  urls: []                  # e.g. ["http://user:pass@proxy.example.com:8080"]
+  urls: []                  # e.g. ["http://USERNAME:PASSWORD@proxy.example.com:8080"]

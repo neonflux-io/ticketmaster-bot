@@ -146,7 +146,7 @@ coordinator, every runner picks up a fresh slot on launch.
 ### URL parsing
 
 `parse_proxy_url(url)` in `src/proxy/manager.py` accepts standard
-URLs of the form `scheme://[user:pass@]host[:port][/path]`. Bare
+URLs of the form `scheme://[USERNAME:PASSWORD@]host[:port][/path]`. Bare
 `host:port` is rejected so the scheme is always explicit (Playwright
 requires it). Credentials embedded in the URL are split into
 Playwright's separate `username` / `password` fields rather than
@@ -167,8 +167,8 @@ proxy:
   enabled: false
   policy: "sticky"          # sticky | round_robin
   urls:
-    - "http://user:pass@proxy-1.example.com:8080"
-    - "http://user:pass@proxy-2.example.com:8080"
+    - "http://USERNAME:PASSWORD@proxy-1.example.com:8080"
+    - "http://USERNAME:PASSWORD@proxy-2.example.com:8080"
 ```
 
 When `enabled: false` or `urls: []`, `ProxyManager.resolve(...)`

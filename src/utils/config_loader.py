@@ -288,7 +288,7 @@ class ProxyConfig:
     """Per-account proxy plumbing for :class:`src.proxy.ProxyManager`.
 
     ``urls`` is the raw, full proxy URL list (each entry is a
-    ``scheme://[user[:password]@]host:port`` string). Credentials are
+    ``scheme://[USER[:PASSWORD]@]host:port`` string). Credentials are
     expressed inline in the URL — the manager parses them out into
     Playwright's separate ``username`` / ``password`` fields at
     resolve-time so config stays compact and consistent with proxy
