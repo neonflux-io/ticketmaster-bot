@@ -334,6 +334,133 @@ the required tokens; that test will fail loudly if TM ever moves
 the SG OAuth surface to a regional host (`auth.th.ticketmaster.com`,
 `auth.sg.ticketmaster.com`, etc.) or drops a required token.
 
+## Seat-map events
+
+Some SG venues mount a per-section interactive seat-map (a Fancybox
+iframe rendered after the operator clicks "Pick Your Own Seat" on a
+section). When the configured event has reserved seating and the
+operator wants a specific row/seat rather than Best-Available, the
+SG adapter supports the
+[`interactive_seatmap`](strategies.md#interactive_seatmap) strategy.
+
+### Which events use a seat-map?
+
+The seat-map is rendered for sections whose ticket-type form exposes
+`<button id="manualMode">` ("Pick Your Own Seat") alongside the
+default `<button id="autoMode">` ("Best Available"). The
+[F8.1 recon report](recon/ticketmaster_sg/seatmap.md) walks through
+the discovery procedure step-by-step. As of the 2026 capture, the
+worked example is **KFF Singapore Badminton Open 2026** at
+`https://ticketmaster.sg/activity/detail/26sg_sgopen2026` (Singapore
+Indoor Stadium). Per the recon doc, GA-only events (e.g. the PGL CS2
+Major) have NO `#manualMode` button — those sections only support
+Best-Available.
+
+To check whether a new event supports the seat-map flow, run:
+
+```bash
+python run.py --no-headless --dry-run \
+  --events https://ticketmaster.sg/activity/detail/<gameCode>
+```
+
+…and click into a section yourself. If the resulting ticket-type
+form contains `<button id="manualMode">`, the seat-map flow is
+available for that section.
+
+### Configuring `tickets.interactive_seatmap`
+
+Three string fields, all required when `tickets.strategy =
+interactive_seatmap`:
+
+```yaml
+tickets:
+  strategy: interactive_seatmap
+  quantity: 1
+  interactive_seatmap:
+    section: "225"   # visible section label (matches `<div class="area-name">`)
+    row: "18"        # visible row label    (matches `data-seatrow="18"`)
+    seat: "5"        # visible seat label   (matches `data-seatno="5"`)
+```
+
+These are **visible** labels matched verbatim against the SG seat-map
+`<td>` cell's `data-seatrow` / `data-seatno` attributes — not the
+internal grid coordinates (`data-coordinate="5_3"`). The operator
+configures what they see on the seat-map (Row 18, Seat 5), not the
+internal indices the SG site uses to record submissions. The values
+are required to be non-empty; the loader rejects misconfigured
+seat-map blocks at config-load time with a clear
+`tickets.strategy='interactive_seatmap' requires non-empty
+tickets.interactive_seatmap.{section,row,seat}` error.
+
+### What the SG adapter does at run time
+
+When `tickets.strategy == "interactive_seatmap"`, the SG `BotRunner`
+(`src/vendors/ticketmaster_sg/core.py`) overrides two extension
+points exposed by the base US runner:
+
+1. **`_build_strategy`** — substitutes the SG-tailored
+   `SGInteractiveSeatmapStrategy`
+   (`src/vendors/ticketmaster_sg/seatmap.py`) for the shared
+   `InteractiveSeatmapStrategy`. The SG variant targets `<td>` cells
+   via the parametric `seatmap_seat_by_label_template` selector in
+   `config/selectors/ticketmaster_sg.yaml`; the shared variant
+   targets the US React seat-map's `<rect>` SVG elements.
+2. **`_select_ticket`** — adds three DOM steps the base flow does
+   not need:
+   - Clicks `button#manualMode` on the ticket-area page (the
+     "Pick Your Own Seat" trigger). The SG site opens a Fancybox
+     iframe at `/ticket/select-seat/<gameCode>/<dateId>/<areaNo>/<count>`.
+   - Waits for the seat-map iframe to attach (`seatmap_iframe`
+     selector).
+   - After `SGInteractiveSeatmapStrategy.pick` clicks the cell, the
+     runner clicks `button#submitSeat` ("Confirm Seats"). The SG
+     site's inline AJAX submit closes the Fancybox and posts the
+     parent form, transitioning the page to
+     `/ticket/check-captcha/<...>` — the standard SG captcha gate
+     handled by `src/vendors/ticketmaster_sg/cart.py` and
+     `src/vendors/ticketmaster_sg/auth.py::wait_for_human_if_captcha`.
+
+The rest of the flow (cart confirmation → checkout review →
+auto-purchase guard) is identical to the area-only Best-Available
+flow — there are no additional config knobs to set once
+`tickets.interactive_seatmap` is wired up.
+
+### Fallback when seat-map cannot be solved
+
+The SG seat-map strategy returns `None` in three situations:
+
+- **Cell not available**: the configured `(row, seat)` is `td.sold`,
+  `td.noseat`, `td.checked`, or simply absent from the section's
+  layout. `SGInteractiveSeatmapStrategy.pick` only ever clicks
+  `td.empty[...]` cells, so a sold seat is not a runtime crash —
+  the strategy logs a clear warning and returns `None`.
+- **`#manualMode` not on the page**: the section the area-page
+  resolved to does not support seat-picking (e.g. a GA-only section
+  on a hybrid venue). The SG runner returns `None` instead of
+  crashing.
+- **Iframe never attaches**: the Fancybox failed to mount — usually
+  a transient network / JS issue. The runner returns `None` and
+  the state machine surfaces "No matching tickets found" via the
+  usual desktop notification.
+
+In every `None` case the runner reports the failure through the
+standard `after_select` lifecycle event and aborts the run cleanly
+(no spurious `#submitSeat` click, no partial cart). The
+**recommended operator fallback** is to switch
+`tickets.strategy` back to `best_available` (or `cheapest`) and
+re-run; the area-only flow is the same downstream cart/checkout
+state machine, just with the SG site's auto-pick at the ticket-area
+step instead of an operator-chosen seat. For events where seat
+choice really is critical, a second-attempt run with a different
+`tickets.interactive_seatmap.{row,seat}` is cheap — the SG persistent
+profile carries the auth cookies, so a re-run skips the captcha
+gauntlet and goes straight to the same area page in seconds.
+
+If repeated `None` returns are observed, run the bot with
+`--no-headless` and watch the seat-map iframe load — the in-iframe
+seat grid shows exactly which `(row, seat)` labels are available for
+the section the operator drilled into.
+
 ## Persistent sessions
 
 Per-account persistence works the same way as on the US adapter

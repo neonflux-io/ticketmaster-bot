@@ -26,6 +26,9 @@ from ...utils.stealth import (
 from . import auth, cart, checkout, navigator, queue
 
 if TYPE_CHECKING:
+    from playwright.async_api import Page
+
+    from ...strategies.base import SelectionStrategy, TicketCandidate
     from ...utils.config_loader import AccountConfig, BotConfig
 
 log = logging.getLogger("ticketmaster-bot")
@@ -97,6 +100,32 @@ class BotRunner:
 
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
+
+    def _build_strategy(self) -> SelectionStrategy:
+        """Resolve the configured selection strategy.
+
+        Overridable so vendor-specific subclasses can substitute a
+        vendor-tailored strategy implementation when the config selects
+        a strategy whose DOM contract differs between sites (for
+        example, the SG ``interactive_seatmap`` table-cell flow versus
+        the US SVG-rect flow).
+        """
+        return build_strategy(self.config.tickets)
+
+    async def _select_ticket(
+        self,
+        page: Page,
+        strategy: SelectionStrategy,
+    ) -> TicketCandidate | None:
+        """Run the strategy's pick. Overridable for vendor-specific pre-steps.
+
+        Vendor subclasses that need to open a picker UI (e.g. the SG
+        interactive seat-map Fancybox) before the strategy can resolve
+        its target can override this hook to inject those steps while
+        still emitting the ``before_select`` / ``after_select``
+        lifecycle events the base runner fires around the call.
+        """
+        return await strategy.pick(page)
 
     async def run(self) -> bool:
         """Run the bot end-to-end. Returns True on success."""
@@ -346,10 +375,10 @@ class BotRunner:
             return False
 
         # 5. Select tickets
-        strategy = build_strategy(cfg.tickets)
+        strategy = self._build_strategy()
         await self._delay()
         await self.lifecycle.fire("before_select", self, strategy=cfg.tickets.strategy)
-        chosen = await strategy.pick(page)
+        chosen = await self._select_ticket(page, strategy)
         await self.lifecycle.fire("after_select", self, candidate=chosen)
         if chosen is None:
             log.error("Strategy did not find a suitable ticket")

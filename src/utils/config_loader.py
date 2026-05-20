@@ -100,6 +100,24 @@ class VFanAwareConfig:
 
 
 @dataclass
+class InteractiveSeatmapConfig:
+    """Coordinates for the ``interactive_seatmap`` strategy.
+
+    All three fields are operator-supplied visible labels (NOT internal
+    grid coordinates) and are matched verbatim against the seat-map
+    DOM's data attributes (``data-section`` / ``data-row`` /
+    ``data-seat`` on the US React seat-map, or ``data-seatrow`` /
+    ``data-seatno`` on the SG Yii table). Empty / whitespace-only
+    values are rejected by ``_validate_strategy_constraints`` when
+    ``tickets.strategy == 'interactive_seatmap'``.
+    """
+
+    section: str | None = None
+    row: str | None = None
+    seat: str | None = None
+
+
+@dataclass
 class InnerStrategyConfig:
     """Nested strategy definition used by wrapper strategies.
 
@@ -117,6 +135,7 @@ class InnerStrategyConfig:
     section_target: SectionTargetConfig = field(default_factory=SectionTargetConfig)
     price_range: PriceRangeConfig = field(default_factory=PriceRangeConfig)
     multi_section: MultiSectionConfig = field(default_factory=MultiSectionConfig)
+    interactive_seatmap: InteractiveSeatmapConfig = field(default_factory=InteractiveSeatmapConfig)
     max_price: float | None = None
     accessible_seats: bool = False
 
@@ -130,6 +149,7 @@ class TicketsConfig:
     multi_section: MultiSectionConfig = field(default_factory=MultiSectionConfig)
     resale_filter: ResaleFilterConfig = field(default_factory=ResaleFilterConfig)
     vfan_aware: VFanAwareConfig = field(default_factory=VFanAwareConfig)
+    interactive_seatmap: InteractiveSeatmapConfig = field(default_factory=InteractiveSeatmapConfig)
     inner_strategy: InnerStrategyConfig | None = None
     max_price: float | None = None
     accessible_seats: bool = False
@@ -554,6 +574,7 @@ _LEAF_STRATEGIES: frozenset[str] = frozenset(
         "multi_section",
         "accessible",
         "seat_quality",
+        "interactive_seatmap",
     }
 )
 _WRAPPER_STRATEGIES: frozenset[str] = frozenset({"resale_filter", "vfan_aware"})
@@ -605,11 +626,37 @@ def _parse_multi_section(raw: dict[str, Any], prefix: str) -> MultiSectionConfig
     return MultiSectionConfig(sections=[s.strip() for s in sections_raw])
 
 
+def _parse_interactive_seatmap(raw: dict[str, Any], prefix: str) -> InteractiveSeatmapConfig:
+    """Parse the ``tickets.interactive_seatmap:`` block (section/row/seat).
+
+    Each field is optional in the dataclass so the block can be absent
+    for any non-seatmap strategy. Required-ness is enforced inside
+    :func:`_validate_strategy_constraints` once we know the active
+    strategy is ``interactive_seatmap``.
+    """
+    seatmap_raw = raw.get("interactive_seatmap", {}) or {}
+    if not isinstance(seatmap_raw, dict):
+        raise ValueError(
+            f"{prefix}.interactive_seatmap must be a mapping with section/row/seat keys, "
+            f"got {type(seatmap_raw).__name__}"
+        )
+    for key in ("section", "row", "seat"):
+        value = seatmap_raw.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"{prefix}.interactive_seatmap.{key} must be a string")
+    return InteractiveSeatmapConfig(
+        section=seatmap_raw.get("section"),
+        row=seatmap_raw.get("row"),
+        seat=seatmap_raw.get("seat"),
+    )
+
+
 def _validate_strategy_constraints(
     *,
     strategy: str,
     price_range: PriceRangeConfig,
     multi_section: MultiSectionConfig,
+    interactive_seatmap: InteractiveSeatmapConfig,
     prefix: str,
 ) -> None:
     """Apply the per-leaf-strategy required-field validation."""
@@ -637,6 +684,21 @@ def _validate_strategy_constraints(
             f"{prefix}.strategy='multi_section' requires "
             f"{prefix}.multi_section.sections to be a non-empty list"
         )
+    if strategy == "interactive_seatmap":
+        missing = [
+            key
+            for key, value in (
+                ("section", interactive_seatmap.section),
+                ("row", interactive_seatmap.row),
+                ("seat", interactive_seatmap.seat),
+            )
+            if not value or not value.strip()
+        ]
+        if missing:
+            raise ValueError(
+                f"{prefix}.strategy='interactive_seatmap' requires non-empty "
+                f"{prefix}.interactive_seatmap.{{section,row,seat}} (missing: {', '.join(missing)})"
+            )
 
 
 def _parse_inner_strategy(raw: dict[str, Any] | None, prefix: str) -> InnerStrategyConfig:
@@ -666,10 +728,12 @@ def _parse_inner_strategy(raw: dict[str, Any] | None, prefix: str) -> InnerStrat
     section_target = _parse_section_target(raw, prefix)
     price_range = _parse_price_range(raw, prefix)
     multi_section = _parse_multi_section(raw, prefix)
+    interactive_seatmap = _parse_interactive_seatmap(raw, prefix)
     _validate_strategy_constraints(
         strategy=strategy,
         price_range=price_range,
         multi_section=multi_section,
+        interactive_seatmap=interactive_seatmap,
         prefix=prefix,
     )
     return InnerStrategyConfig(
@@ -677,6 +741,7 @@ def _parse_inner_strategy(raw: dict[str, Any] | None, prefix: str) -> InnerStrat
         section_target=section_target,
         price_range=price_range,
         multi_section=multi_section,
+        interactive_seatmap=interactive_seatmap,
         max_price=_coerce_optional_float(raw.get("max_price"), f"{prefix}.max_price"),
         accessible_seats=bool(raw.get("accessible_seats", False)),
     )
@@ -709,6 +774,7 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
     multi_section = _parse_multi_section(tickets_raw, "tickets")
     resale_filter = _parse_resale_filter(tickets_raw, "tickets")
     vfan_aware = _parse_vfan_aware(tickets_raw, "tickets")
+    interactive_seatmap = _parse_interactive_seatmap(tickets_raw, "tickets")
 
     strategy = tickets_raw.get("strategy", "cheapest")
     inner_strategy_raw = tickets_raw.get("inner_strategy")
@@ -731,6 +797,7 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
         multi_section=multi_section,
         resale_filter=resale_filter,
         vfan_aware=vfan_aware,
+        interactive_seatmap=interactive_seatmap,
         inner_strategy=inner_strategy,
         max_price=_coerce_optional_float(tickets_raw.get("max_price"), "tickets.max_price"),
         accessible_seats=bool(tickets_raw.get("accessible_seats", False)),
@@ -740,6 +807,7 @@ def _parse_tickets(raw: dict[str, Any]) -> TicketsConfig:
         strategy=tickets.strategy,
         price_range=tickets.price_range,
         multi_section=tickets.multi_section,
+        interactive_seatmap=tickets.interactive_seatmap,
         prefix="tickets",
     )
 
@@ -1104,6 +1172,7 @@ __all__ = [
     "HumanizeMouseConfig",
     "HumanizeTypingConfig",
     "InnerStrategyConfig",
+    "InteractiveSeatmapConfig",
     "LoggingConfig",
     "MultiSectionConfig",
     "NotificationsConfig",

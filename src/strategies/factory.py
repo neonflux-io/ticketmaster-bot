@@ -30,6 +30,7 @@ from .vfan_aware import VFanAwareStrategy
 if TYPE_CHECKING:
     from ..utils.config_loader import (
         InnerStrategyConfig,
+        InteractiveSeatmapConfig,
         MultiSectionConfig,
         PriceRangeConfig,
         SectionTargetConfig,
@@ -96,6 +97,7 @@ def build_strategy(cfg: TicketsConfig) -> SelectionStrategy:
         section_target=cfg.section_target,
         price_range=cfg.price_range,
         multi_section=cfg.multi_section,
+        interactive_seatmap=cfg.interactive_seatmap,
         max_price=cfg.max_price,
         accessible_seats=cfg.accessible_seats,
     )
@@ -108,6 +110,7 @@ def _build_inner_strategy(cfg: InnerStrategyConfig) -> SelectionStrategy:
         section_target=cfg.section_target,
         price_range=cfg.price_range,
         multi_section=cfg.multi_section,
+        interactive_seatmap=cfg.interactive_seatmap,
         max_price=cfg.max_price,
         accessible_seats=cfg.accessible_seats,
     )
@@ -119,6 +122,7 @@ def _build_leaf_strategy(
     section_target: SectionTargetConfig,
     price_range: PriceRangeConfig,
     multi_section: MultiSectionConfig,
+    interactive_seatmap: InteractiveSeatmapConfig,
     max_price: float | None,
     accessible_seats: bool,
 ) -> SelectionStrategy:
@@ -145,4 +149,13 @@ def _build_leaf_strategy(
         )
     if strategy == "seat_quality":
         return SeatQualityStrategy(max_price=max_price)
+    if strategy == "interactive_seatmap":
+        # The loader rejects empty section/row/seat for this strategy
+        # (see :func:`src.utils.config_loader._validate_strategy_constraints`)
+        # so the cast to ``str`` is safe here.
+        return InteractiveSeatmapStrategy(
+            section=str(interactive_seatmap.section),
+            row=str(interactive_seatmap.row),
+            seat=str(interactive_seatmap.seat),
+        )
     raise ValueError(f"Unknown strategy: {strategy!r}")

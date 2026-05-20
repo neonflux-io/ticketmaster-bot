@@ -233,6 +233,39 @@ Validation contract: `dom.interactive-seatmap-happy` asserts the
 clicked element is the `<rect>` whose data attrs match. Fixture:
 `tests/fixtures/strategies/seatmap_svg.html`.
 
+### ticketmaster.sg variant
+
+The SG site's seat-map is **not** SVG. It renders as a Yii-templated
+`<table class='seat'>` mounted inside a Fancybox iframe — see
+[`docs/recon/ticketmaster_sg/seatmap.md`](recon/ticketmaster_sg/seatmap.md).
+Each seat is a `<td>` cell carrying `class={empty|sold|noseat|checked}`
+plus per-cell `data-coordinate`, `data-seatrow`, and `data-seatno`
+attributes.
+
+When the operator sets `tickets.strategy=interactive_seatmap` for an
+SG event, the SG `BotRunner`
+(`src/vendors/ticketmaster_sg/core.py::BotRunner._build_strategy`)
+substitutes a vendor-specific strategy class —
+`SGInteractiveSeatmapStrategy` from
+`src/vendors/ticketmaster_sg/seatmap.py` — that targets `<td>` cells
+via the parametric `seatmap_seat_by_label_template` selector in
+`config/selectors/ticketmaster_sg.yaml`. The runner also overrides
+`_select_ticket` to click `button#manualMode` on the ticket-area
+page (the "Pick Your Own Seat" trigger), wait for the seat-map
+iframe to attach, run the SG strategy's `pick`, and then click
+`button#submitSeat` to confirm the selection. The page then
+transitions to `/ticket/check-captcha/<...>` and the rest of the SG
+state machine handles it the same way as the area-only Best-Available
+flow. Operator-facing details, including the recommended fallback
+when a seat is unavailable, are documented in
+[`docs/vendors_ticketmaster_sg.md`](vendors_ticketmaster_sg.md)
+under the **Seat-map events** section.
+
+The same `tickets.interactive_seatmap.{section,row,seat}` YAML keys
+are used by both the US and SG variants; the loader rejects empty /
+whitespace-only values for any of the three so misconfiguration fails
+at config-load time, not in the browser.
+
 ---
 
 ## `resale_filter`
