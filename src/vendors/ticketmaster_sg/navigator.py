@@ -309,6 +309,18 @@ async def detect_state(page: Page) -> str:
     ``event_detail``, ``not_on_sale``, ``sold_out``, ``unknown``.
     """
     url = (page.url or "").lower()
+
+    # Interactive seat-map first: when the SG Fancybox opens, the
+    # parent URL stays on /ticket/area/<...> while the iframe loads
+    # /ticket/select-seat/<...>. A URL-prefix-only check on page.url
+    # would classify that as "tickets". We therefore look across
+    # page.frames for the seat-map URL substring before falling back
+    # to the URL-prefix rules. See docs/recon/ticketmaster_sg/seatmap.md.
+    for frame in page.frames:
+        furl = (frame.url or "").lower()
+        if "/ticket/select-seat/" in furl:
+            return "interactive_seatmap"
+
     for prefix, state in _URL_RULES:
         if prefix in url:
             return state

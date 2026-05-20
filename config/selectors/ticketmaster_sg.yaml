@@ -133,6 +133,84 @@ ticket_form_manual_seat_button:
 csrf_input:
   - "input[type='hidden'][name='_csrf']"
 
+# ----- interactive seat-map (/ticket/select-seat/...) ----------------------
+
+# F8.1 recon: ticketmaster.sg renders the per-section seat-map as a
+# server-rendered <table class="seat"> mounted inside a Fancybox iframe
+# (NOT SVG, NOT Canvas). Each seat is a <td> with class={empty|sold|
+# noseat|checked|tagseat} and the per-cell data-attributes
+# data-coordinate (internal grid index, e.g. "5_3"),
+# data-seatrow (visible row label, e.g. "18"), and
+# data-seatno (visible seat label, e.g. "5"). The strategy matches
+# against the visible labels (data-seatrow / data-seatno), NOT the
+# internal coordinate, because the user picks "Row 18 seat 5".
+#
+# The iframe lives on /ticket/select-seat/<gameCode>/<dateId>/<areaNo>/<count>;
+# the parent page URL stays on /ticket/area/<...> while the iframe
+# loads. See docs/recon/ticketmaster_sg/seatmap.md for the full DOM
+# walk-through.
+
+# The Fancybox iframe wrapper that holds the seat-map. Used by the
+# SG seat-map strategy to descend into the frame via
+# page.frame_locator(...) before resolving cell-level selectors.
+seatmap_iframe:
+  - "iframe[src*='/ticket/select-seat/']"
+  - "iframe[src*='ticket/select-seat']"
+
+# The seat-grid <table>. Used as a "seat-map fully rendered" marker
+# (count() > 0) and as a scope for the per-cell selectors.
+seatmap_grid:
+  - "table.seat"
+
+# Header / legend / section-label markers. Mostly used by tests +
+# operators to confirm the iframe really loaded the seat-map (rather
+# than a 401 / error page).
+seatmap_section_label:
+  - "div.area-name"
+
+seatmap_legend:
+  - "ul#legend"
+
+# Per-cell selectors, broken out by visible state so the strategy can
+# (a) count available seats up-front, (b) skip aisle / sold / already-
+# selected cells when picking, and (c) confirm post-click that the
+# cell flipped from .empty to .checked.
+seatmap_seat_available:
+  - "table.seat td.empty[data-seatrow][data-seatno]"
+
+seatmap_seat_sold:
+  - "table.seat td.sold"
+  - "table.seat td.tagseat"
+
+seatmap_seat_selected:
+  - "table.seat td.checked"
+
+seatmap_seat_noseat:
+  - "table.seat td.noseat"
+
+# Parametric template: matches a specific available seat by its
+# visible row/seat label. Rendered by src.vendors.ticketmaster_sg.
+# selectors.selector_for_template, which CSS-escapes both placeholders
+# before substitution. The strategy passes
+# row=tickets.interactive_seatmap.row,
+# seat=tickets.interactive_seatmap.seat from the operator's config.
+seatmap_seat_by_label_template:
+  - "table.seat td.empty[data-seatrow=\"{row}\"][data-seatno=\"{seat}\"]"
+
+# Action buttons inside the iframe. submitSeat is the "Confirm Seats"
+# button the strategy clicks after the cell flip, which triggers the
+# inline AJAX POST to /ticket/select-seat/<...> and (on success) the
+# Fancybox close + parent-form submit that advances to the captcha
+# gate at /ticket/check-captcha/<...>.
+seatmap_submit_button:
+  - "button#submitSeat"
+
+seatmap_close_button:
+  - "button#exitSeat"
+
+seatmap_reset_button:
+  - "button#resetSeat"
+
 # ----- check-captcha page (/ticket/check-captcha/...) ----------------------
 
 check_captcha_form:

@@ -204,6 +204,52 @@ async def test_detect_state_on_identity_exchange_url(chromium_context) -> None:
     assert await detect_state(page) == "login_in_progress"
 
 
+async def test_detect_state_on_select_seat_url(chromium_context) -> None:
+    """URL-prefix rule for the SG interactive seat-map step (F8.2)."""
+    page = await chromium_context.new_page()
+    target = "https://ticketmaster.sg/ticket/select-seat/26sg_sgopen2026/3318/46/88"
+    await _serve_url(page, target)
+    await page.goto(target)
+    assert await detect_state(page) == "interactive_seatmap"
+
+
+async def test_detect_state_iframe_with_select_seat_url(chromium_context) -> None:
+    """Iframe-presence fallback: the live SG seat-map iframe loads the
+    /ticket/select-seat/ URL while the parent stays on /ticket/area/...,
+    so the navigator must climb into ``page.frames`` and match there
+    too. Mirrors the F8.1 recon finding that ``page.url`` alone misses
+    the Fancybox seat-map transition.
+    """
+    page = await chromium_context.new_page()
+    parent_url = "https://ticketmaster.sg/ticket/area/26sg_sgopen2026/3318"
+    iframe_url = "https://ticketmaster.sg/ticket/select-seat/26sg_sgopen2026/3318/46/88"
+
+    async def _handler(route):  # noqa: ANN001 - Playwright Route is untyped
+        if route.request.url.startswith(iframe_url):
+            await route.fulfill(
+                status=200,
+                content_type="text/html; charset=utf-8",
+                body="<html><body><table class='seat'></table></body></html>",
+            )
+            return
+        if route.request.url == parent_url:
+            await route.fulfill(
+                status=200,
+                content_type="text/html; charset=utf-8",
+                body=(
+                    f"<!doctype html><html><body><iframe src='{iframe_url}'></iframe></body></html>"
+                ),
+            )
+            return
+        await route.fulfill(status=200, body="")
+
+    await page.route("**/*", _handler)
+    await page.goto(parent_url)
+    # Wait for the iframe to attach so page.frames contains it.
+    await page.wait_for_selector("iframe[src*='/ticket/select-seat/']")
+    assert await detect_state(page) == "interactive_seatmap"
+
+
 # ---------------------------------------------------------------------------
 # detect_state - DOM marker fallbacks
 # ---------------------------------------------------------------------------

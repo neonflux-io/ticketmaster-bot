@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from src.registry import vendors as _vendor_registry
 
-from . import auth, cart, checkout, core, navigator, price, queue
+from . import auth, cart, checkout, core, navigator, price, queue, seatmap
 from .adapter import TicketmasterSGAdapter
+from .seatmap import SGInteractiveSeatmapStrategy
 from .selectors import locator, locator_multi, selector_for
 
 # Idempotent registration so re-import during test reloads does not raise.
@@ -25,6 +26,7 @@ if "ticketmaster_sg" not in _vendor_registry.registry:
     _vendor_registry.register("ticketmaster_sg", TicketmasterSGAdapter)
 
 __all__ = [
+    "SGInteractiveSeatmapStrategy",
     "TicketmasterSGAdapter",
     "auth",
     "cart",
@@ -35,5 +37,6 @@ __all__ = [
     "navigator",
     "price",
     "queue",
+    "seatmap",
     "selector_for",
 ]
