@@ -8,11 +8,13 @@ are exposed — every DOM test runs against real Playwright.
 
 from __future__ import annotations
 
+import logging
 import sys
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
 import pytest_asyncio
 from playwright.async_api import async_playwright
 
@@ -25,6 +27,45 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 _FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _reset_ticketmaster_bot_logger_propagation() -> Iterator[None]:
+    """Restore caplog visibility on the ``ticketmaster-bot`` logger.
+
+    ``src.utils.logger.setup_logger`` (exercised by ``tests/test_logger.py``
+    and ``tests/utils/test_logger_json.py``) attaches handlers to the
+    ``ticketmaster-bot`` logger and sets ``propagate=False``. Because the
+    logger is a module-level singleton, that mutation leaks into every
+    subsequent test in the same pytest process. pytest's ``caplog`` fixture
+    installs its handler on the *root* logger, so once propagation is
+    disabled and stale file/console handlers remain attached, log records
+    emitted by production code never reach ``caplog`` — making any test
+    that asserts on caplog content (e.g. the purchase-guard integration
+    tests) fail intermittently depending on collection order.
+
+    Resetting both knobs at function setup guarantees caplog can see every
+    record the ``ticketmaster-bot`` logger emits, regardless of which test
+    ran before it.
+    """
+    logger = logging.getLogger("ticketmaster-bot")
+    original_propagate = logger.propagate
+    original_handlers = list(logger.handlers)
+    original_level = logger.level
+    # Detach any handlers left behind by previous tests (e.g. RichHandler /
+    # FileHandler from setup_logger) and re-enable propagation so caplog's
+    # root-level handler receives our records.
+    logger.handlers.clear()
+    logger.propagate = True
+    logger.setLevel(logging.NOTSET)
+    try:
+        yield
+    finally:
+        logger.handlers.clear()
+        for handler in original_handlers:
+            logger.addHandler(handler)
+        logger.propagate = original_propagate
+        logger.setLevel(original_level)
 
 
 @pytest_asyncio.fixture(scope="session")
