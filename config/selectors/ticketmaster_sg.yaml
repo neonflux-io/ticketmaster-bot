@@ -257,21 +257,58 @@ cart_url_markers:
   - "/cart"
 
 # DOM markers (page-level) that prove the cart page itself rendered.
-# Used as a fallback when the URL alone is ambiguous.
+# Used as a fallback when the URL alone is ambiguous. The live SG
+# capture (F7.6) shows the cart-equivalent page is the combined
+# ``/ticket/checkout`` URL whose form id is ``form-ticket-checkout``,
+# whose order-summary table id is ``cartList``, and whose ticket-count
+# span id is ``cartTotalTicket`` — those are the structural ids the
+# Yii template emits even when the SG site is logged out / paused /
+# captcha-gated, so they're the canonical cart-page indicators.
 cart_page_indicators:
+  - "form#form-ticket-checkout"
+  - "table#cartList"
+  - "span#cartTotalTicket"
   - "section#sec-cart"
   - "table#cartTable"
   - "form#form-ticket-cart"
   - "div#cartSummary"
 
 # Order summary / cart total node — read by verify_cart_matches.
+# The live SG ``/ticket/checkout`` page exposes the order total via
+# ``span#orderAmount`` (e.g. ``$600.00``) — that's the canonical SGD
+# total used by the SG cart-match verifier. Legacy / US-style ids are
+# kept as later fallbacks.
 cart_order_total:
+  - "span#orderAmount"
   - "#cartOrderTotal"
   - "#checkoutOrderTotal"
   - ".cart-total"
   - "td.cart-total"
 
+# Canonical ticket-count node on the SG ``/ticket/checkout`` page —
+# ``<span id="cartTotalTicket">N ticket(s)</span>``. Read by
+# ``verify_cart_matches`` BEFORE the broader text-regex fallback so
+# anti-scrape order tokens (the hex ``<span class="hex_Order_number">``
+# adjacent to the column headers) and section-number runs
+# (``GENERAL ADMISSION FREE SEATING EXCL. 230-232``) cannot poison
+# the count.
+cart_ticket_count_node:
+  - "span#cartTotalTicket"
+
+# Per-row section/zone label nodes inside the SG cart table. The live
+# ``/ticket/checkout`` page renders each cart row's
+# section/ticket-type combo inside ``<div class="ticket-info">`` —
+# the first line is the group/zone label ("GEN ADM"), the second is
+# the ticket-type ("Standard $144.00"). ``verify_cart_matches`` reads
+# the first line of each ``.ticket-info`` div as the section so the
+# section-mismatch check works on the live SG DOM even though the
+# page never prints the word "Section:".
+cart_row_ticket_info:
+  - "div.ticket-info"
+
 cart_order_summary:
+  - "table#cartList"
+  - "form#form-ticket-checkout"
   - "div#orderSummary"
   - "section#sec-cart"
   - "div#cartSummary"
@@ -291,6 +328,36 @@ checkout_delivery_option_label_template:
   - "label.form-check-label:has-text('{keyword}')"
   - "div.delivery-option label:has-text('{keyword}')"
 
+# Live SG delivery selector. The 2026 capture (F7.6) shows the
+# ``/ticket/checkout`` page uses a Yii ``<select>`` with id
+# ``checkoutform-shipmentid`` whose ``<option>`` text labels are the
+# visible delivery names (currently "Courier" and "Mobile Ticket" for
+# this venue; other SG venues add "Venue Collection" etc.). When
+# present, the SG select_delivery path chooses an option by visible
+# text rather than ticking a radio.
+checkout_delivery_select:
+  - "select#checkoutform-shipmentid"
+  - "select[name='CheckoutForm[shipmentId]']"
+
+# Single payment radio rendered on the live SG ``/ticket/checkout``
+# page (the SG site bundles every payment method - Visa, Mastercard,
+# AMEX, Atome, GrabPay, Apple Pay, Google Pay, WeChat - behind one
+# pre-checked ``checkoutform-paymentid-88`` radio). Used by the SG
+# checkout module to confirm the payment-method block rendered.
+checkout_payment_radio:
+  - "input#checkoutform-paymentid-88"
+  - "input[type='radio'][name='CheckoutForm[paymentId]']"
+
+# Live SG ``/ticket/checkout`` Place Order / Checkout submit button.
+# The 2026 capture renders this as a ``<button id="submitButton">``
+# inside ``form#form-ticket-checkout`` with visible text "Checkout"
+# — this IS the final-purchase trigger (despite living on the
+# checkout page, the SG flow has no further confirmation step).
+checkout_submit_button:
+  - "button#submitButton"
+  - "form#form-ticket-checkout button[type='submit']"
+  - "button.btn-green:has-text('Checkout')"
+
 # Generic saved-card radio (used as a fallback when last-four is None).
 checkout_saved_card_radio:
   - "input.saved-card-radio"
@@ -305,9 +372,15 @@ checkout_saved_card_label_template:
   - "input.saved-card-radio[data-last-four='{last_four}']"
 
 # Place-Order / final submit button (only ever clicked when
-# auto_purchase=true).
+# auto_purchase=true). The live SG ``/ticket/checkout`` page (F7.6
+# capture) renders the final submit as ``button#submitButton`` with
+# visible text "Checkout"; older / hand-built recon assumed the US
+# naming so the legacy ids stay as later fallbacks.
 checkout_place_order_button:
+  - "button#submitButton"
   - "button#placeOrderButton"
+  - "form#form-ticket-checkout button[type='submit']"
+  - "button.btn-green:has-text('Checkout')"
   - "button:has-text('Place Order')"
   - "button:has-text('Confirm & Pay')"
 

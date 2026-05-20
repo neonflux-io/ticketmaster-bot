@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<!--
+ Hand-built fixture for ticketmaster.sg saved-card selection.
+
+ The live SG ``/ticket/checkout`` capture (F7.6 cart.html / checkout.html)
+ only renders ONE bundled payment radio that covers every accepted
+ method - the live page never exposed saved cards because the
+ captured account did not have any saved. The
+ ``select_saved_card(page, last_four)`` helper in
+ src/vendors/ticketmaster_sg/checkout.py still needs to be tested
+ against a DOM that matches the YAML
+ ``checkout_saved_card_label_template`` selectors:
+
+   label.form-check-label:has-text('ending in {last_four}')
+   label.form-check-label:has-text('**** {last_four}')
+   input.saved-card-radio[data-last-four='{last_four}']
+
+ This fixture renders the two SG saved-card label shapes the helper
+ is supposed to match:
+
+   1. "Visa ending in 4242" - the canonical SG label format
+   2. "Mastercard **** 1111" - the alternative asterisk format
+
+ Both are wired via ``for=...`` to a real radio input so ticking the
+ label propagates to the linked radio.
+
+ This is the only hand-built checkout-page fixture committed under
+ the ticketmaster_sg directory; everything else is sourced from real
+ recon or live captures.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Checkout (saved cards) | Ticketmaster SG (fixture)</title>
+  </head>
+  <body>
+    <main id="content">
+      <form id="form-ticket-checkout" action="/ticket/checkout" method="post">
+        <div id="paymentBox">
+          <div class="page-title">Payment Method</div>
+          <div class="alert alert-info">
+            <div class="payment-option saved-card form-check">
+              <label class="form-check-label" for="payment_saved_4242">
+                <input
+                  type="radio"
+                  id="payment_saved_4242"
+                  class="saved-card-radio form-check-input"
+                  name="CheckoutForm[paymentId]"
+                  value="saved-4242"
+                  data-last-four="4242"
+                />
+                Visa ending in 4242
+              </label>
+            </div>
+            <div class="payment-option saved-card form-check">
+              <label class="form-check-label" for="payment_saved_1111">
+                <input
+                  type="radio"
+                  id="payment_saved_1111"
+                  class="saved-card-radio form-check-input"
+                  name="CheckoutForm[paymentId]"
+                  value="saved-1111"
+                  data-last-four="1111"
+                />
+                Mastercard **** 1111
+              </label>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

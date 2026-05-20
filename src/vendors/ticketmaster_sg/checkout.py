@@ -97,6 +97,82 @@ async def _click_radio_or_label(page: Page, label_locator) -> bool:  # noqa: ANN
     return True
 
 
+async def _select_delivery_option_in_native_select(
+    page: Page, keyword: str
+) -> bool:
+    """Try to pick a delivery option in the SG ``<select>`` shipment list.
+
+    The live SG ``/ticket/checkout`` page (F7.6 capture) renders
+    delivery options as ``<option>``s inside ``select#checkoutform-shipmentid``
+    rather than as a radio-button group. This helper looks up the
+    select via the SG registry, scans its options' visible text for a
+    case-insensitive substring match against ``keyword``, and calls
+    ``select_option`` with the matched ``value=``. Returns True when
+    an option matched and was selected; False otherwise.
+    """
+    keyword_lc = keyword.lower()
+    for sel in sg_selectors.get("checkout_delivery_select"):
+        try:
+            select = page.locator(sel).first
+            if not await select.is_visible(timeout=400):
+                continue
+            options = select.locator("option")
+            count = await options.count()
+            for i in range(count):
+                opt = options.nth(i)
+                try:
+                    text = (await opt.inner_text(timeout=300)) or ""
+                    value = await opt.get_attribute("value", timeout=300)
+                except Exception:  # noqa: BLE001
+                    continue
+                if not value:
+                    continue
+                if keyword_lc in text.lower():
+                    await select.select_option(value=value)
+                    log.info(
+                        "Selected SG delivery option %r (value=%s) via native select",
+                        text.strip(),
+                        value,
+                    )
+                    return True
+        except Exception as exc:  # noqa: BLE001
+            log.debug("Native delivery select scan via %s failed: %s", sel, exc)
+            continue
+    return False
+
+
+async def _select_first_delivery_option_in_native_select(page: Page) -> bool:
+    """Pick the first non-empty option in the SG shipment ``<select>``."""
+    for sel in sg_selectors.get("checkout_delivery_select"):
+        try:
+            select = page.locator(sel).first
+            if not await select.is_visible(timeout=400):
+                continue
+            options = select.locator("option")
+            count = await options.count()
+            for i in range(count):
+                opt = options.nth(i)
+                try:
+                    value = await opt.get_attribute("value", timeout=300)
+                    text = (await opt.inner_text(timeout=300)) or ""
+                except Exception:  # noqa: BLE001
+                    continue
+                if not value:
+                    # First option is the "Please Select" placeholder; skip.
+                    continue
+                await select.select_option(value=value)
+                log.warning(
+                    "No preferred SG delivery match - falling back to first "
+                    "shipment option %r (value=%s)",
+                    text.strip(),
+                    value,
+                )
+                return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
 async def select_delivery(
     page: Page,
     *,
@@ -106,14 +182,28 @@ async def select_delivery(
     """Select an SG delivery option by label keyword.
 
     ``preferred`` is an ordered list of keywords to try in turn
-    (case-insensitive substring match against the visible label). If
-    none match and ``allow_any`` is ``False`` the function leaves
-    delivery untouched and returns ``False``; if ``allow_any`` is
-    ``True`` it falls back to the first delivery radio it can find
-    (last-resort policy — only enabled by explicit caller opt-in).
+    (case-insensitive substring match against the visible label /
+    option text). The function handles two SG DOM shapes:
+
+    1. The live ``/ticket/checkout`` page renders delivery options as
+       ``<option>``s in ``select#checkoutform-shipmentid``; we pick
+       the matching ``value`` via ``select_option``.
+    2. Earlier / hand-built fixtures rendered delivery options as a
+       radio-button group; we click the matching label and tick the
+       linked radio for compatibility.
+
+    If neither shape yields a match and ``allow_any`` is ``False`` the
+    function leaves delivery untouched and returns ``False``; if
+    ``allow_any`` is ``True`` it falls back to the first delivery
+    control it can find (last-resort policy — only enabled by
+    explicit caller opt-in).
     """
     for keyword in preferred:
         try:
+            # Native <select> path first (live SG DOM).
+            if await _select_delivery_option_in_native_select(page, keyword):
+                return True
+            # Legacy radio-label path (hand-built / older fixtures).
             label = sg_selectors.locator_template(
                 page, "checkout_delivery_option_label_template", keyword=keyword
             )
@@ -138,6 +228,8 @@ async def select_delivery(
         )
         return False
 
+    if await _select_first_delivery_option_in_native_select(page):
+        return True
     for sel in sg_selectors.get("checkout_delivery_radio"):
         try:
             radio = page.locator(sel).first
@@ -197,7 +289,24 @@ async def select_saved_card(page: Page, last_four: str | None) -> bool:
 
 
 def _extract_quantity(text: str) -> int | None:
-    match = re.search(r"(\d+)\s*(?:tickets?|seats?)\b", text, re.IGNORECASE)
+    """Find an integer ticket count in the SG order-summary text.
+
+    The SG ``/ticket/checkout`` page decorates its order-summary with
+    a hex-style anti-scrape token (``<span class="hex_Order_number">``)
+    next to the column headers, so the inner_text concatenation can
+    end up containing fragments like ``12b3861 Seat Info``. The
+    regex therefore requires a word-boundary BEFORE the digit run
+    (so ``3861 Seat`` won't be picked from ``12b3861 Seat``) and
+    explicitly tightens the unit suffix to the SG forms (``ticket(s)``
+    or ``seat(s)``). The dedicated ``span#cartTotalTicket`` node on
+    the live SG page contains exactly ``N ticket(s)``; that's what
+    this regex is designed to pull.
+    """
+    match = re.search(
+        r"(?<![A-Za-z0-9])(\d+)\s*(?:tickets?|seats?)\b",
+        text,
+        re.IGNORECASE,
+    )
     if not match:
         return None
     try:
@@ -311,8 +420,23 @@ async def verify_cart_matches(
         log.warning("Could not read SG order summary for verification - proceeding cautiously")
         return True
 
-    lowered = text.lower()
-    found_qty = _extract_quantity(lowered)
+    # Prefer the canonical ticket-count node when present — the SG
+    # order summary inner-text contains anti-scrape hex tokens and
+    # alphanumeric section labels (e.g. "EXCL. 230-232 Ticket Info")
+    # that confuse a naive ``\d+ tickets`` regex applied to the whole
+    # summary. The dedicated ``span#cartTotalTicket`` node carries
+    # exactly ``N ticket(s)``.
+    found_qty: int | None = None
+    try:
+        count_node = sg_selectors.locator(page, "cart_ticket_count_node")
+        if await count_node.is_visible(timeout=800):
+            count_text = (await count_node.inner_text(timeout=1500)) or ""
+            found_qty = _extract_quantity(count_text)
+    except Exception:  # noqa: BLE001
+        found_qty = None
+    if found_qty is None:
+        lowered = text.lower()
+        found_qty = _extract_quantity(lowered)
     if found_qty is not None and found_qty != expected_quantity:
         log.error(
             "SG cart quantity mismatch: expected %d, summary shows %d",
@@ -325,7 +449,37 @@ async def verify_cart_matches(
         return True
 
     if expected_candidate.section:
-        found_sections = {_normalise_section(s) for s in _extract_sg_sections(text)}
+        found_sections: set[str] = {
+            _normalise_section(s) for s in _extract_sg_sections(text)
+        }
+        # The live SG ``/ticket/checkout`` page never prints the
+        # literal word "Section:"; per-row section labels live inside
+        # ``<div class="ticket-info">`` (first line is the zone/group
+        # label, second line is the ticket-type). Read those nodes
+        # directly so the section check works on the live capture.
+        try:
+            row_nodes = sg_selectors.locator_multi(page, "cart_row_ticket_info")
+            row_count = await row_nodes.count()
+            for i in range(row_count):
+                node = row_nodes.nth(i)
+                try:
+                    if not await node.is_visible(timeout=400):
+                        continue
+                    raw = (await node.inner_text(timeout=800)) or ""
+                except Exception:  # noqa: BLE001
+                    continue
+                # First non-blank line is the section label
+                # ("GEN ADM"); second line is the ticket-type
+                # ("Standard $144.00"). Splitting on newlines avoids
+                # accidentally swallowing the price/tier text.
+                first_line = next(
+                    (ln.strip() for ln in raw.splitlines() if ln.strip()),
+                    "",
+                )
+                if first_line:
+                    found_sections.add(_normalise_section(first_line))
+        except Exception:  # noqa: BLE001
+            pass
         expected_norm = _normalise_section(expected_candidate.section)
         if found_sections and expected_norm not in found_sections:
             log.error(
