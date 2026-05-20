@@ -15,6 +15,7 @@ from . import auth as auth_module
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
+    from ...captcha import CaptchaSolverChain
     from ...strategies.base import TicketCandidate
 
 log = logging.getLogger("ticketmaster-bot")
@@ -173,6 +174,8 @@ async def run_checkout(
     expected_candidate: TicketCandidate | None = None,
     price_tolerance: float = 0.05,
     captcha_timeout_seconds: float = 300,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> bool:
     """Execute the checkout flow.
 
@@ -217,7 +220,12 @@ async def run_checkout(
     await random_human_delay(*action_delay)
 
     # TM frequently throws a captcha at the very last step.
-    await auth_module.wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
+    await auth_module.wait_for_human_if_captcha(
+        page,
+        timeout_seconds=captcha_timeout_seconds,
+        captcha_solver_chain=captcha_solver_chain,
+        refresh_between_attempts=captcha_refresh_between_attempts,
+    )
 
     try:
         btn = locator(page, "place_order_button")

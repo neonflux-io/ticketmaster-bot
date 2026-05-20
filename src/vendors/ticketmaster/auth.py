@@ -14,6 +14,7 @@ from ...utils.retry import random_human_delay
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, FrameLocator, Page
 
+    from ...captcha import CaptchaSolverChain
     from ...utils.config_loader import AccountConfig, HumanizeTypingConfig
 
 log = logging.getLogger("ticketmaster-bot")
@@ -178,6 +179,10 @@ async def login(
     account: AccountConfig,
     action_delay: tuple[float, float] = (0.5, 2.0),
     typing_cfg: HumanizeTypingConfig | None = None,
+    *,
+    captcha_timeout_seconds: float = 300.0,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> None:
     """Perform interactive login through the Ticketmaster auth flow."""
     page = await context.new_page()
@@ -249,12 +254,29 @@ async def wait_for_human_if_captcha(
     page: Page,
     *,
     timeout_seconds: float = 300,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    refresh_between_attempts: bool = True,  # noqa: ARG001 - reserved for parity with SG
 ) -> bool:
     """Pause execution while a captcha/challenge is visible.
 
     Returns ``True`` if the challenge was cleared (or never present), ``False``
     if the timeout expired with the challenge still showing.
+
+    ``captcha_solver_chain`` is accepted for parity with the SG vendor
+    so the shared :class:`src.vendors.ticketmaster.core.BotRunner`
+    call sites can pass the kwarg unconditionally. The US site mounts
+    Google reCAPTCHA / Imperva / Akamai challenges that are not
+    image-based and therefore not solvable by the current Yii-image
+    chain, so the hook is intentionally inert here — the chain is
+    accepted (so the kwarg-set passed by the SG runner type-checks
+    against this shared signature) but never consulted.
     """
+    if captcha_solver_chain is not None:
+        log.debug(
+            "wait_for_human_if_captcha: captcha_solver_chain provided but "
+            "the US flow does not auto-solve reCAPTCHA / Imperva challenges; "
+            "falling through to the human-pause loop unchanged."
+        )
     if not _has_captcha_frame(page) and not await _looks_like_challenge_page(page):
         return True
     log.warning(

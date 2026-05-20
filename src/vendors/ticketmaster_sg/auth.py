@@ -44,6 +44,7 @@ import logging
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from ...captcha import CaptchaChallenge
 from ...humanize.typing import human_type
 from ...utils.retry import random_human_delay
 from .selectors import locator, try_selector_for
@@ -51,6 +52,7 @@ from .selectors import locator, try_selector_for
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, Page
 
+    from ...captcha import CaptchaSolverChain
     from ...utils.config_loader import AccountConfig, HumanizeTypingConfig
 
 log = logging.getLogger("ticketmaster-bot")
@@ -298,6 +300,8 @@ async def login(
     typing_cfg: HumanizeTypingConfig | None = None,
     *,
     captcha_timeout_seconds: float = 300.0,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> None:
     """Perform the SG OAuth login flow inside ``context``.
 
@@ -376,7 +380,12 @@ async def login(
         # risk score is high.
         if await has_captcha(page):
             log.warning("Captcha mounted on password step - waiting for solve")
-            await wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
+            await wait_for_human_if_captcha(
+                page,
+                timeout_seconds=captcha_timeout_seconds,
+                captcha_solver_chain=captcha_solver_chain,
+                refresh_between_attempts=captcha_refresh_between_attempts,
+            )
 
         # Submit either via the "Sign In" button if present, or by
         # pressing Enter on the password field. PingFederate's button
@@ -423,19 +432,150 @@ async def _wait_for_login_complete(page: Page, *, timeout_seconds: float = 300.0
     raise AuthError("SG login did not complete within timeout")
 
 
+async def _refresh_yii_captcha(page: Page) -> None:
+    """Click the Yii captcha image to rotate it via ``/ticket/captcha?refresh=1``.
+
+    The live SG captcha page mounts an ``onclick`` on
+    ``img#TicketForm_verifyCode-image`` that fetches a fresh image
+    server-side. Clicking the image is therefore the canonical "rotate
+    the challenge" interaction; no DOM-mutation barrier blocks the
+    chain between attempts.
+    """
+    try:
+        image = locator(page, "captcha_image")
+        await image.click(timeout=5000)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("SG captcha refresh click failed: %s", exc)
+
+
+async def _try_solve_yii_captcha(
+    page: Page,
+    chain: CaptchaSolverChain,
+    *,
+    refresh_between_attempts: bool,
+) -> bool:
+    """Run the solver chain against the currently-mounted Yii captcha.
+
+    Returns ``True`` when the chain produced a solution, the answer
+    was typed into ``input#TicketForm_verifyCode``, the submit button
+    was clicked, and the page transitioned away from the captcha
+    (either via URL change or by clearing the Yii image). Returns
+    ``False`` when the chain exhausted without an answer, when the
+    captcha element was no longer present mid-flow, or when the
+    submit click did not advance the page.
+    """
+    image_locator = locator(page, "captcha_image")
+    input_locator = locator(page, "captcha_input")
+    submit_locator = locator(page, "captcha_submit_button")
+
+    try:
+        if await image_locator.count() == 0:
+            return False
+        screenshot = await image_locator.screenshot()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("SG captcha screenshot failed; falling through to human pause: %s", exc)
+        return False
+
+    async def _refresh() -> None:
+        if refresh_between_attempts:
+            await _refresh_yii_captcha(page)
+
+    challenge = CaptchaChallenge(
+        challenge_type="yii_image",
+        screenshot_bytes=screenshot,
+        refresh_callable=_refresh,
+        input_locator=input_locator,
+        page=page,
+    )
+
+    pre_url = page.url or ""
+    solution = await chain.solve_with_chain(challenge)
+    if solution is None:
+        log.info("SG captcha chain exhausted without producing an answer")
+        return False
+
+    try:
+        await input_locator.fill("")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        await input_locator.fill(solution.text)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("SG captcha input fill failed: %s", exc)
+        return False
+
+    try:
+        await submit_locator.click(timeout=5000)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("SG captcha submit click failed: %s", exc)
+        return False
+
+    # Wait briefly for the page to either navigate (URL change) or to
+    # render a fresh challenge. The deadline is short here because the
+    # caller's overall timeout governs the human-pause fallback.
+    deadline = asyncio.get_event_loop().time() + 10.0
+    while asyncio.get_event_loop().time() < deadline:
+        if (page.url or "") != pre_url:
+            log.info(
+                "SG captcha auto-solved by %s in %dms (URL transition)",
+                solution.provider,
+                solution.latency_ms,
+            )
+            return True
+        if not await has_captcha(page):
+            log.info(
+                "SG captcha auto-solved by %s in %dms (challenge cleared)",
+                solution.provider,
+                solution.latency_ms,
+            )
+            return True
+        await asyncio.sleep(0.5)
+
+    log.info(
+        "SG captcha submit by %s did not advance the page within 10s",
+        solution.provider,
+    )
+    return False
+
+
 async def wait_for_human_if_captcha(
     page: Page,
     *,
     timeout_seconds: float = 300.0,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    refresh_between_attempts: bool = True,
 ) -> bool:
     """Pause execution while an SG captcha is mounted.
 
     Returns ``True`` if the page no longer carries a captcha (either
-    never did, or the human cleared it). Returns ``False`` if the
-    timeout expired with a captcha still mounted.
+    never did, the chain auto-solved it, or the human cleared it).
+    Returns ``False`` if the timeout expired with a captcha still
+    mounted.
+
+    When ``captcha_solver_chain`` is provided and a Yii image captcha
+    is detected, the chain is consulted first. On success (chain
+    returns a :class:`CaptchaSolution`, the input is filled, the
+    submit button is clicked, and the page advances) this function
+    returns ``True`` immediately. If the chain exhausts without an
+    answer, or the submit click does not advance the page, control
+    falls through to the existing human-pause behaviour so a human can
+    finish the challenge in the browser.
     """
     if not await has_captcha(page):
         return True
+
+    if captcha_solver_chain is not None and await _yii_captcha_visible(page):
+        solved = await _try_solve_yii_captcha(
+            page,
+            captcha_solver_chain,
+            refresh_between_attempts=refresh_between_attempts,
+        )
+        if solved:
+            return True
+        if not await has_captcha(page):
+            return True
+        log.warning("SG captcha chain did not solve - falling back to human pause")
+
     log.warning(
         "SG captcha detected - waiting up to %.0fs for human to solve",
         timeout_seconds,

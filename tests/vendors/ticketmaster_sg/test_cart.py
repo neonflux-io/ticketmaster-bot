@@ -175,7 +175,7 @@ async def test_add_to_cart_clicks_button_and_records_terms_checked(
     )
 
     # Patch the captcha wait to a no-op (no captcha on the fixture).
-    async def _no_captcha(page, *, timeout_seconds=300.0):  # noqa: ANN001
+    async def _no_captcha(page, **_kwargs):  # noqa: ANN001, ANN003
         return True
 
     monkeypatch.setattr(sg_cart.sg_auth, "wait_for_human_if_captcha", _no_captcha)
@@ -200,7 +200,7 @@ async def test_add_to_cart_returns_false_when_button_missing(
 ) -> None:
     """Event-detail page has no #autoMode → add_to_cart returns False."""
 
-    async def _no_captcha(page, *, timeout_seconds=300.0):  # noqa: ANN001
+    async def _no_captcha(page, **_kwargs):  # noqa: ANN001, ANN003
         return True
 
     monkeypatch.setattr(sg_cart.sg_auth, "wait_for_human_if_captcha", _no_captcha)

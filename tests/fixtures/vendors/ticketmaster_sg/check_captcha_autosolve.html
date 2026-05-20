@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+ Synthetic captcha fixture for F9.3 ``test_captcha_autosolve.py``.
+
+ Mirrors the shape of the live ``/ticket/check-captcha/...`` page:
+   * ``img#TicketForm_verifyCode-image``
+   * ``input#TicketForm_verifyCode``
+   * ``form#form-ticket-check-captcha`` with a Submit button
+
+ Inline JS replaces the default form submit so the page navigates to a
+ known "success" URL when the visible answer "ABCDE" is typed. Any
+ other answer rerenders the same form (no URL transition). This lets
+ a real-Chromium test assert:
+
+   1. The auth flow detects the captcha,
+   2. The solver chain returns the right text,
+   3. The input is filled,
+   4. The submit button is clicked,
+   5. The URL transitions on success.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Verification | Ticketmaster SG (autosolve fixture)</title>
+  </head>
+  <body>
+    <main id="content">
+      <form
+        id="form-ticket-check-captcha"
+        action="#"
+        method="post"
+        onsubmit="return false;"
+      >
+        <input
+          type="hidden"
+          name="_csrf"
+          value="autosolve-fixture-csrf"
+        />
+
+        <div id="captchaBox">
+          <div class="col-lg-12 text-center">
+            <!--
+              The image embeds the captcha answer as visible alphanumerics
+              ("ABCDE") so a deterministic-fake CaptchaSolver subclass can
+              return the correct text without needing real OCR. The fake
+              solver in the test reads the answer from a class attribute,
+              NOT from the image bytes, so the data: URI here only has to
+              be a valid 1x1 PNG.
+            -->
+            <img
+              id="TicketForm_verifyCode-image"
+              src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+              alt="Verification code (ABCDE)"
+              style="cursor: pointer; width: 120px; height: 40px; background: #eee"
+            />
+          </div>
+
+          <div class="col-lg-12 text-center">
+            Please enter the verification code
+            <input
+              type="text"
+              id="TicketForm_verifyCode"
+              name="TicketForm[verifyCode]"
+              placeholder="Verification Code"
+              value=""
+            />
+          </div>
+
+          <input
+            type="hidden"
+            name="g-recaptcha-response"
+            id="g-recaptcha-response"
+            value=""
+          />
+
+          <div class="col-lg-12 text-center">
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </div>
+      </form>
+
+      <p id="status">awaiting-input</p>
+    </main>
+
+    <script>
+      // The expected captcha answer for this fixture. The test's
+      // deterministic-fake CaptchaSolver returns this same value.
+      const EXPECTED = "ABCDE";
+
+      const form = document.getElementById("form-ticket-check-captcha");
+      const input = document.getElementById("TicketForm_verifyCode");
+      const status = document.getElementById("status");
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const typed = (input.value || "").trim().toUpperCase();
+        if (typed === EXPECTED) {
+          status.textContent = "captcha-cleared";
+          // Strip the captcha image + input so detector code (which
+          // looks for ``img#TicketForm_verifyCode-image``) sees no
+          // captcha mounted after the submit.
+          const captchaBox = document.getElementById("captchaBox");
+          if (captchaBox) {
+            captchaBox.parentNode.removeChild(captchaBox);
+          }
+          // Navigate to a "success" sentinel URL so the URL-transition
+          // branch of ``wait_for_human_if_captcha`` fires.
+          window.location.replace("#captcha-passed");
+        } else {
+          status.textContent = "captcha-wrong";
+        }
+      });
+
+      // Make clicking the captcha image rotate its alt-text suffix
+      // (mimicking the SG ``/ticket/captcha?refresh=1`` rotation) so
+      // the test's ``refresh_callable`` invocation has an observable
+      // side-effect even without a real backend.
+      const image = document.getElementById("TicketForm_verifyCode-image");
+      if (image) {
+        let refreshes = 0;
+        image.addEventListener("click", () => {
+          refreshes += 1;
+          image.setAttribute("data-refresh-count", String(refreshes));
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -38,8 +38,10 @@ operator-facing configuration of this branch.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from ...captcha import CaptchaSolverChain
+from ...captcha import registry as captcha_registry
 from ..ticketmaster.core import BotRunner as _BaseBotRunner
 from . import auth, cart, checkout, navigator, queue
 from . import selectors as sg_selectors
@@ -67,6 +69,67 @@ class BotRunner(_BaseBotRunner):
 
     def __init__(self, config: BotConfig, account: AccountConfig | None = None) -> None:
         super().__init__(config, account=account)
+        self.captcha_solver_chain: CaptchaSolverChain | None = self._build_captcha_solver_chain()
+
+    def _build_captcha_solver_chain(self) -> CaptchaSolverChain | None:
+        """Build the captcha solver chain from ``config.captcha`` when enabled.
+
+        Returns ``None`` when ``config.captcha.auto_solve`` is false so
+        the existing human-pause behaviour in
+        :func:`src.vendors.ticketmaster_sg.auth.wait_for_human_if_captcha`
+        runs unchanged. When enabled, every provider name in
+        ``config.captcha.providers`` is looked up in
+        :mod:`src.captcha.registry` (registered classes are instantiated
+        eagerly so misconfiguration surfaces immediately at construction
+        time, not on the first captcha encountered) and an ordered
+        :class:`CaptchaSolverChain` is returned with
+        ``config.captcha.retries_per_provider`` attempts per provider.
+        """
+        cfg = self.config.captcha
+        if not cfg.auto_solve:
+            return None
+        for name in cfg.providers:
+            entry = captcha_registry.get(name)
+            if isinstance(entry, type):
+                try:
+                    instance = entry()
+                except Exception as exc:  # noqa: BLE001
+                    log.warning(
+                        "Captcha provider %r could not be instantiated (%s); "
+                        "the chain will still consult its registered class but "
+                        "the call may fail at solve time",
+                        name,
+                        exc,
+                    )
+                else:
+                    captcha_registry.registry.unregister(name)
+                    captcha_registry.register(name, instance)
+        steps = [(name, cfg.retries_per_provider) for name in cfg.providers]
+        log.info(
+            "Captcha auto-solve enabled: chain=%s retries_per_provider=%d "
+            "refresh_between_attempts=%s",
+            ", ".join(cfg.providers) or "<empty>",
+            cfg.retries_per_provider,
+            cfg.refresh_between_attempts,
+        )
+        return CaptchaSolverChain(steps)
+
+    def _captcha_kwargs(self) -> dict[str, Any]:
+        """Thread the SG captcha solver chain into every step that pauses.
+
+        Only emit the kwargs when ``config.captcha.auto_solve`` is true
+        AND a chain was successfully built; otherwise return ``{}`` so
+        the historic call signatures of ``auth.login`` /
+        ``cart.add_to_cart`` / ``checkout.run_checkout`` are unchanged.
+        """
+        if self.captcha_solver_chain is None:
+            return {}
+        cfg = self.config.captcha
+        return {
+            "captcha_solver_chain": self.captcha_solver_chain,
+            "captcha_refresh_between_attempts": cfg.refresh_between_attempts,
+            "captcha_timeout_seconds": cfg.captcha_timeout_seconds,
+        }
 
     # -----------------------------------------------------------------
     # Seat-map extension points

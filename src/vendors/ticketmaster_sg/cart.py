@@ -38,6 +38,8 @@ from . import selectors as sg_selectors
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
+    from ...captcha import CaptchaSolverChain
+
 log = logging.getLogger("ticketmaster-bot")
 
 # Marketing / promo opt-ins the cart accept-terms helper must never tick,
@@ -207,6 +209,8 @@ async def add_to_cart(
     action_delay: tuple[float, float] = (0.5, 2.0),
     timeout_seconds: float = 30.0,
     captcha_timeout_seconds: float = 300.0,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> bool:
     """Click the SG "Best Available" button to reserve tickets in cart.
 
@@ -252,7 +256,12 @@ async def add_to_cart(
 
     # SG re-throws the Yii / reCAPTCHA challenge between cart and
     # checkout for high-traffic events. Pause for a human if needed.
-    await sg_auth.wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
+    await sg_auth.wait_for_human_if_captcha(
+        page,
+        timeout_seconds=captcha_timeout_seconds,
+        captcha_solver_chain=captcha_solver_chain,
+        refresh_between_attempts=captcha_refresh_between_attempts,
+    )
 
     return await verify_cart_in_cart(page)
 

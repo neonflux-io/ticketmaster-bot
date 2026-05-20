@@ -101,6 +101,20 @@ class BotRunner:
     async def _delay(self) -> None:
         await maybe_human_delay(self.humanize, self.action_delay_min, self.action_delay_max)
 
+    def _captcha_kwargs(self) -> dict[str, Any]:
+        """Return extra kwargs forwarded to step calls that pause for captchas.
+
+        The base US runner returns ``{}`` so the existing human-pause
+        behaviour in
+        :func:`src.vendors.ticketmaster.auth.wait_for_human_if_captcha`
+        runs unchanged. Vendor subclasses override this to thread an
+        optional :class:`src.captcha.CaptchaSolverChain` through
+        ``auth.login`` / ``cart.add_to_cart`` /
+        ``checkout.run_checkout`` so the SG flow can auto-solve Yii
+        image captchas when ``config.captcha.auto_solve`` is true.
+        """
+        return {}
+
     def _build_strategy(self) -> SelectionStrategy:
         """Resolve the configured selection strategy.
 
@@ -308,6 +322,7 @@ class BotRunner:
                     self.account,
                     action_delay=(self.action_delay_min, self.action_delay_max),
                     typing_cfg=typing_cfg,
+                    **self._captcha_kwargs(),
                 )
                 await self.lifecycle.fire("after_login", self, account=self.account.name)
             else:
@@ -400,6 +415,7 @@ class BotRunner:
             page,
             action_delay=(self.action_delay_min, self.action_delay_max),
             timeout_seconds=cfg.timing.page_timeout_seconds,
+            **self._captcha_kwargs(),
         )
         await self.lifecycle.fire("after_cart", self, candidate=chosen, added=added)
         if not added:
@@ -433,6 +449,7 @@ class BotRunner:
             expected_quantity=cfg.tickets.quantity,
             expected_candidate=chosen,
             price_tolerance=cfg.checkout.price_tolerance,
+            **self._captcha_kwargs(),
         )
 
         if cfg.checkout.auto_purchase and success:

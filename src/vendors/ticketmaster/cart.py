@@ -14,6 +14,8 @@ from . import auth as auth_module
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
+    from ...captcha import CaptchaSolverChain
+
 log = logging.getLogger("ticketmaster-bot")
 
 # Keywords that identify *legitimate* terms-of-purchase checkboxes.
@@ -106,6 +108,8 @@ async def add_to_cart(
     action_delay: tuple[float, float] = (0.5, 2.0),
     timeout_seconds: float = 30,
     captcha_timeout_seconds: float = 300,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> bool:
     """Click the primary 'Add to Cart' / 'Continue' button to reserve tickets."""
     await random_human_delay(*action_delay)
@@ -143,7 +147,12 @@ async def add_to_cart(
         await page.wait_for_timeout(2000)
 
     # TM frequently re-challenges between add-to-cart and the checkout page.
-    await auth_module.wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
+    await auth_module.wait_for_human_if_captcha(
+        page,
+        timeout_seconds=captcha_timeout_seconds,
+        captcha_solver_chain=captcha_solver_chain,
+        refresh_between_attempts=captcha_refresh_between_attempts,
+    )
 
     return await _verify_in_cart(page)
 

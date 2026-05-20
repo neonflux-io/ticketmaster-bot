@@ -336,6 +336,40 @@ class ProxyConfig:
 
 
 @dataclass
+class CaptchaConfig:
+    """Configuration for the optional automated captcha-solving chain.
+
+    ``auto_solve`` is the master switch. When false (the default), the
+    existing human-pause behaviour in
+    :func:`src.vendors.ticketmaster_sg.auth.wait_for_human_if_captcha`
+    is preserved unchanged and the captcha solver chain is never even
+    consulted. When true, the SG runner builds a
+    :class:`src.captcha.CaptchaSolverChain` from ``providers`` (each
+    provider name is looked up in
+    :data:`src.captcha.registry.registry`) with ``retries_per_provider``
+    attempts per provider, and threads it through every
+    ``wait_for_human_if_captcha`` call.
+
+    ``refresh_between_attempts`` toggles whether the chain invokes the
+    challenge's ``refresh_callable`` between attempts to rotate the
+    image (the Yii ``/ticket/captcha?refresh=1`` endpoint). Off keeps
+    the chain solving the *same* captcha across providers, which is
+    useful when one provider's failure mode is provider-specific
+    rather than image-specific.
+
+    ``captcha_timeout_seconds`` is the overall budget the SG auth flow
+    passes into :func:`wait_for_human_if_captcha` for the human-pause
+    fallback (matches the historical 300 s default).
+    """
+
+    auto_solve: bool = False
+    providers: list[str] = field(default_factory=lambda: ["openai_vlm"])
+    retries_per_provider: int = 5
+    refresh_between_attempts: bool = True
+    captcha_timeout_seconds: float = 300.0
+
+
+@dataclass
 class BotConfig:
     events: list[EventConfig]
     tickets: TicketsConfig
@@ -346,6 +380,7 @@ class BotConfig:
     browser: BrowserConfig
     accounts: list[AccountConfig]
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
+    captcha: CaptchaConfig = field(default_factory=CaptchaConfig)
 
     @property
     def event(self) -> EventConfig:
@@ -967,6 +1002,48 @@ def _parse_notifications(raw: dict[str, Any]) -> NotificationsConfig:
     )
 
 
+def _parse_captcha(raw: dict[str, Any]) -> CaptchaConfig:
+    """Parse the top-level ``captcha:`` block into :class:`CaptchaConfig`.
+
+    Every field is optional; an absent block (or a block with no keys)
+    yields the dataclass defaults, which preserve the historic
+    human-pause behaviour (``auto_solve: false``).
+    """
+    captcha_raw = raw.get("captcha", {}) or {}
+    if not isinstance(captcha_raw, dict):
+        raise ValueError(
+            "captcha must be a mapping with keys auto_solve / providers / "
+            "retries_per_provider / refresh_between_attempts / captcha_timeout_seconds, "
+            f"got {type(captcha_raw).__name__}"
+        )
+
+    providers_raw = captcha_raw.get("providers")
+    if providers_raw is None:
+        providers: list[str] = list(CaptchaConfig().providers)
+    else:
+        if not isinstance(providers_raw, list) or not all(
+            isinstance(p, str) and p.strip() for p in providers_raw
+        ):
+            raise ValueError("captcha.providers must be a list of non-empty strings")
+        providers = [p.strip() for p in providers_raw]
+
+    retries = int(captcha_raw.get("retries_per_provider", 5))
+    if retries < 0:
+        raise ValueError(f"captcha.retries_per_provider must be >= 0, got {retries}")
+
+    timeout_seconds = float(captcha_raw.get("captcha_timeout_seconds", 300.0))
+    if timeout_seconds <= 0:
+        raise ValueError(f"captcha.captcha_timeout_seconds must be > 0, got {timeout_seconds}")
+
+    return CaptchaConfig(
+        auto_solve=bool(captcha_raw.get("auto_solve", False)),
+        providers=providers,
+        retries_per_provider=retries,
+        refresh_between_attempts=bool(captcha_raw.get("refresh_between_attempts", True)),
+        captcha_timeout_seconds=timeout_seconds,
+    )
+
+
 def _parse_proxy(raw: dict[str, Any]) -> ProxyConfig:
     """Parse the top-level ``proxy:`` block into :class:`ProxyConfig`.
 
@@ -1083,6 +1160,7 @@ def load_config(
     logging_cfg = _parse_logging(merged)
     notifications = _parse_notifications(merged)
     proxy = _parse_proxy(merged)
+    captcha = _parse_captcha(merged)
     accounts = _load_accounts(accounts_path)
 
     if checkout.auto_purchase:
@@ -1111,6 +1189,7 @@ def load_config(
         browser=browser,
         accounts=accounts,
         proxy=proxy,
+        captcha=captcha,
     )
 
 
@@ -1165,6 +1244,7 @@ __all__ = [
     "ArtifactsConfig",
     "BotConfig",
     "BrowserConfig",
+    "CaptchaConfig",
     "CheckoutConfig",
     "DeliveryConfig",
     "EventConfig",

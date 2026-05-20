@@ -387,7 +387,7 @@ async def test_run_checkout_aborts_on_quantity_mismatch_when_auto_purchase(
 ) -> None:
     """auto_purchase=True with mismatching expected_quantity → False, no click."""
 
-    async def _no_captcha(page, *, timeout_seconds=300.0):  # noqa: ANN001
+    async def _no_captcha(page, **_kwargs):  # noqa: ANN001, ANN003
         return True
 
     monkeypatch.setattr(sg_checkout.sg_auth, "wait_for_human_if_captcha", _no_captcha)

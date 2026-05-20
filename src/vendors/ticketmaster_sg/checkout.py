@@ -40,6 +40,7 @@ from .price import parse_sgd_price
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
+    from ...captcha import CaptchaSolverChain
     from ...strategies.base import TicketCandidate
 
 log = logging.getLogger("ticketmaster-bot")
@@ -97,9 +98,7 @@ async def _click_radio_or_label(page: Page, label_locator) -> bool:  # noqa: ANN
     return True
 
 
-async def _select_delivery_option_in_native_select(
-    page: Page, keyword: str
-) -> bool:
+async def _select_delivery_option_in_native_select(page: Page, keyword: str) -> bool:
     """Try to pick a delivery option in the SG ``<select>`` shipment list.
 
     The live SG ``/ticket/checkout`` page (F7.6 capture) renders
@@ -449,9 +448,7 @@ async def verify_cart_matches(
         return True
 
     if expected_candidate.section:
-        found_sections: set[str] = {
-            _normalise_section(s) for s in _extract_sg_sections(text)
-        }
+        found_sections: set[str] = {_normalise_section(s) for s in _extract_sg_sections(text)}
         # The live SG ``/ticket/checkout`` page never prints the
         # literal word "Section:"; per-row section labels live inside
         # ``<div class="ticket-info">`` (first line is the zone/group
@@ -542,6 +539,8 @@ async def run_checkout(
     expected_candidate: TicketCandidate | None = None,
     price_tolerance: float = 0.05,
     captcha_timeout_seconds: float = 300.0,
+    captcha_solver_chain: CaptchaSolverChain | None = None,
+    captcha_refresh_between_attempts: bool = True,
 ) -> bool:
     """Execute the SG checkout flow.
 
@@ -590,7 +589,12 @@ async def run_checkout(
     await random_human_delay(*action_delay)
 
     # SG can throw a final captcha at the last review step.
-    await sg_auth.wait_for_human_if_captcha(page, timeout_seconds=captcha_timeout_seconds)
+    await sg_auth.wait_for_human_if_captcha(
+        page,
+        timeout_seconds=captcha_timeout_seconds,
+        captcha_solver_chain=captcha_solver_chain,
+        refresh_between_attempts=captcha_refresh_between_attempts,
+    )
 
     try:
         btn = sg_selectors.locator(page, "checkout_place_order_button")

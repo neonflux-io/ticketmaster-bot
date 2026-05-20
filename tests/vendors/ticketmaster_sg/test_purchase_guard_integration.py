@@ -54,7 +54,7 @@ async def _set_minimal_checkout(page) -> None:  # noqa: ANN001
 async def _patch_captcha(monkeypatch: pytest.MonkeyPatch) -> None:
     """Skip the captcha wait so the test never blocks on a human."""
 
-    async def _no_captcha(page, *, timeout_seconds: float = 300.0) -> bool:  # noqa: ANN001
+    async def _no_captcha(page, **_kwargs) -> bool:  # noqa: ANN001, ANN003
         return True
 
     monkeypatch.setattr(sg_checkout.sg_auth, "wait_for_human_if_captcha", _no_captcha)

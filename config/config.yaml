@@ -143,3 +143,30 @@ proxy:
   enabled: false
   policy: "sticky"          # sticky | round_robin
   urls: []                  # e.g. ["http://USERNAME:PASSWORD@proxy.example.com:8080"]
+
+# Automated captcha-solving chain. Off by default so the existing
+# human-pause behaviour in ``wait_for_human_if_captcha`` is preserved;
+# the chain is not even consulted when ``auto_solve: false``.
+#
+# When ``auto_solve: true``, the SG runner builds a
+# ``src.captcha.CaptchaSolverChain`` from ``providers`` (each name is
+# looked up in ``src.captcha.registry.registry``) with
+# ``retries_per_provider`` attempts per provider. The chain is
+# threaded through every ``wait_for_human_if_captcha`` call: when a
+# Yii image captcha is detected the chain runs first, and the
+# human-pause path is only taken when the chain exhausts.
+#
+# ``refresh_between_attempts: true`` invokes the challenge's
+# ``refresh_callable`` between attempts to rotate the Yii image
+# (``/ticket/captcha?refresh=1``). Off keeps the chain solving the
+# *same* captcha across providers.
+#
+# ``captcha_timeout_seconds`` is the overall budget passed into
+# ``wait_for_human_if_captcha`` for the human-pause fallback.
+captcha:
+  auto_solve: false
+  providers:
+    - "openai_vlm"
+  retries_per_provider: 5
+  refresh_between_attempts: true
+  captcha_timeout_seconds: 300
