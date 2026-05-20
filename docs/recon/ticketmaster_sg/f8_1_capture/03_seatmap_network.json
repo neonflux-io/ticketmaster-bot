@@ -1,0 +1,1052 @@
+[
+  {
+    "method": "GET",
+    "resource_type": "document",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/ticket/area/26sg_sgopen2026/3318"
+  },
+  {
+    "content_type": "text/html; charset=UTF-8",
+    "stage": "response",
+    "status": 401,
+    "url": "https://ticketmaster.sg/ticket/area/26sg_sgopen2026/3318"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/eps-mgr"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/asset/shared.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/asset/shared.js"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/eps-mgr"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/eps.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/eps.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/iamNotaRobot.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/abuse-component.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/aps.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/eps-gec.js"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/iamNotaRobot.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/abuse-component.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/abuse-component.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/tm.css"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/eps-gec.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://recaptcha.net/recaptcha/enterprise.js?render=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/aps.js"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/abuse-component.css"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/tm.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/identify.json"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/1f4d8a80/asset/identify.json"
+  },
+  {
+    "content_type": "text/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://recaptcha.net/recaptcha/enterprise.js?render=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/eps/log?hasPublicKeyCredential=true&hasConditionalMediation=true&conditionalMediationAvailable=true&platformAuthenticator=false&err=&fpjs=1cba9efe2ae34f71aed634d69c167d0b"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "document",
+    "stage": "request",
+    "url": "https://recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV&co=aHR0cHM6Ly90aWNrZXRtYXN0ZXIuc2c6NDQz&hl=en&v=Br0hYqpfWeFzYCAXLD4UuCIV&size=invisible&anchor-ms=20000&execute-ms=30000&cb=q0p8o3b3jg0u"
+  },
+  {
+    "content_type": "text/html; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV&co=aHR0cHM6Ly90aWNrZXRtYXN0ZXIuc2c6NDQz&hl=en&v=Br0hYqpfWeFzYCAXLD4UuCIV&size=invisible&anchor-ms=20000&execute-ms=30000&cb=q0p8o3b3jg0u"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/styles__ltr.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/styles__ltr.css"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://recaptcha.net/recaptcha/enterprise/webworker.js?hl=en&v=Br0hYqpfWeFzYCAXLD4UuCIV"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://www.gstatic.com/recaptcha/api2/logo_48.png"
+  },
+  {
+    "method": "GET",
+    "resource_type": "font",
+    "stage": "request",
+    "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2"
+  },
+  {
+    "content_type": "image/png",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.gstatic.com/recaptcha/api2/logo_48.png"
+  },
+  {
+    "content_type": "text/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://recaptcha.net/recaptcha/enterprise/webworker.js?hl=en&v=Br0hYqpfWeFzYCAXLD4UuCIV"
+  },
+  {
+    "method": "GET",
+    "resource_type": "other",
+    "stage": "request",
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "content_type": "font/woff2",
+    "stage": "response",
+    "status": 200,
+    "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.gstatic.com/recaptcha/releases/Br0hYqpfWeFzYCAXLD4UuCIV/recaptcha__en.js"
+  },
+  {
+    "content_type": "",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/eps/log?hasPublicKeyCredential=true&hasConditionalMediation=true&conditionalMediationAvailable=true&platformAuthenticator=false&err=&fpjs=1cba9efe2ae34f71aed634d69c167d0b"
+  },
+  {
+    "method": "POST",
+    "resource_type": "xhr",
+    "stage": "request",
+    "url": "https://recaptcha.net/recaptcha/enterprise/reload?k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "content_type": "application/json; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://recaptcha.net/recaptcha/enterprise/reload?k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "method": "POST",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/epsf/gec/v3/SGTicket"
+  },
+  {
+    "method": "POST",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://recaptcha.net/recaptcha/enterprise/clr?k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "content_type": "application/binary",
+    "stage": "response",
+    "status": 200,
+    "url": "https://recaptcha.net/recaptcha/enterprise/clr?k=6LcvL3UrAAAAAO_9u8Seiuf-I6F_tP_jSS-zndXV"
+  },
+  {
+    "content_type": "",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/epsf/gec/v3/SGTicket"
+  },
+  {
+    "method": "GET",
+    "resource_type": "document",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/ticket/area/26sg_sgopen2026/3318"
+  },
+  {
+    "content_type": "text/html; charset=UTF-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/ticket/area/26sg_sgopen2026/3318"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/css/bootstrap.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.2.0/magnific-popup.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/magnific-popup-style-dialog-window.css?v=20250217"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jquery.selectbox/1.2.0/jquery.selectBox.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.0/themes/smoothness/jquery-ui.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/iv_style.css?v=36"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/ui-responsive.css?v=6"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/image-stacked.css?v=10"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/override.css?v=13"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/qrcode.css?v=8"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/b7dd4dcc/jquery.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/js/bootstrap.bundle.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/ads.js?v=20241127200620"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/bba9a1aa/yii.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jquery.selectbox/1.2.0/jquery.selectBox.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.0/jquery-ui.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/common.js?v=1"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/flags/sg.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://static.ticketmaster.sg/images/logo/internet.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://static.ticketmaster.sg/images/activity/26sg_sgopen2026_4b8f39a1b422ddb30746ab780055b631.jpg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/logo/facebook.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/logo/x.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/logo/instagram.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/eps-mgr"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.2.0/jquery.magnific-popup.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/queue-it/queueclient.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/queue-it/queueconfigloader.min.js"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jquery.selectbox/1.2.0/jquery.selectBox.min.css"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://static.ticketmaster.sg/images/logo/internet.svg"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.0/themes/smoothness/jquery-ui.min.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.2.0/magnific-popup.min.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"
+  },
+  {
+    "content_type": "image/jpeg",
+    "stage": "response",
+    "status": 200,
+    "url": "https://static.ticketmaster.sg/images/activity/26sg_sgopen2026_4b8f39a1b422ddb30746ab780055b631.jpg"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jquery.selectbox/1.2.0/jquery.selectBox.min.js"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.0/jquery-ui.min.js"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.2.0/jquery.magnific-popup.min.js"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/override.css?v=13"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/flags/sg.svg"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/qrcode.css?v=8"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/ui-responsive.css?v=6"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/common.js?v=1"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/ads.js?v=20241127200620"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/magnific-popup-style-dialog-window.css?v=20250217"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/iv_style.css?v=36"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..900&display=swap"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/image-stacked.css?v=10"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..900&display=swap"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/queue-it/queueclient.min.js"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/css/bootstrap.min.css"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/b7dd4dcc/jquery.min.js"
+  },
+  {
+    "content_type": "text/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/eps-mgr"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/js/bootstrap.bundle.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "document",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/ticket/select-seat/26sg_sgopen2026/3318/46/88"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/queue-it/queueconfigloader.min.js"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/logo/x.svg"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/logo/facebook.svg"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/logo/instagram.svg"
+  },
+  {
+    "content_type": "text/html; charset=UTF-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/ticket/select-seat/26sg_sgopen2026/3318/46/88"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/css/bootstrap.min.css"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/css/bootstrap.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/ui_select_seat.css?v=6"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/css/iv_switch.css?v=1"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/seat-open.png"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/seat-sold.png"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/images/seat-selected.png"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/b7dd4dcc/jquery.min.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/b7dd4dcc/jquery.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/queue-it/queueclient.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/queue-it/queueconfigloader.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/js/bootstrap.bundle.min.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/fcaa3c37/dist/js/bootstrap.bundle.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/js/ads.js?v=20241127200620"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/ads.js?v=20241127200620"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js"
+  },
+  {
+    "content_type": "application/javascript; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://ticketmaster.sg/assets/bba9a1aa/yii.js"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/iv_switch.css?v=1"
+  },
+  {
+    "content_type": "image/png",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/seat-open.png"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/css/ui_select_seat.css?v=6"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://fonts.googleapis.com/earlyaccess/notosanstc.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "stylesheet",
+    "stage": "request",
+    "url": "https://fonts.googleapis.com/earlyaccess/notosansjapanese.css"
+  },
+  {
+    "content_type": "image/png",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/seat-sold.png"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/queue-it/queueclient.min.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/js/queue-it/queueconfigloader.min.js"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://fonts.googleapis.com/earlyaccess/notosansjapanese.css"
+  },
+  {
+    "content_type": "text/css; charset=utf-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://fonts.googleapis.com/earlyaccess/notosanstc.css"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://www.googletagmanager.com/gtm.js?id=GTM-KHQ8BC9"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://assets.queue-it.net/ticketmasterasia/integrationconfig/javascript/queueclientConfig.js?versionTimestamp=20260520191907"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://assets.queue-it.net/ticketmasterasia/integrationconfig/javascript/queueclientConfig.js?versionTimestamp=20260520191907"
+  },
+  {
+    "content_type": "application/javascript; charset=UTF-8",
+    "stage": "response",
+    "status": 200,
+    "url": "https://www.googletagmanager.com/gtm.js?id=GTM-KHQ8BC9"
+  },
+  {
+    "content_type": "image/png",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/images/seat-selected.png"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://ticketmaster.sg/assets/bba9a1aa/yii.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "xhr",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/consent/bc03a3fc-f727-407d-b542-663c1c905a55/bc03a3fc-f727-407d-b542-663c1c905a55.json"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/consent/bc03a3fc-f727-407d-b542-663c1c905a55/bc03a3fc-f727-407d-b542-663c1c905a55.json"
+  },
+  {
+    "method": "GET",
+    "resource_type": "xhr",
+    "stage": "request",
+    "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location"
+  },
+  {
+    "method": "GET",
+    "resource_type": "script",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/otBannerSdk.js"
+  },
+  {
+    "content_type": "application/javascript",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/otBannerSdk.js"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/consent/bc03a3fc-f727-407d-b542-663c1c905a55/0197c27a-9e8d-7776-9054-ce3467833e1e/en.json"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/consent/bc03a3fc-f727-407d-b542-663c1c905a55/0197c27a-9e8d-7776-9054-ce3467833e1e/en.json"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/otFloatingFlat.json"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/v2/otPcTab.json"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/otCommonStyles.css"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/v2/otPcTab.json"
+  },
+  {
+    "content_type": "text/css",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/otCommonStyles.css"
+  },
+  {
+    "content_type": "application/json",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/scripttemplates/202601.1.0/assets/otFloatingFlat.json"
+  },
+  {
+    "method": "GET",
+    "resource_type": "fetch",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/logos/ba6f9c5b-dda5-43bd-bac4-4e06afccd928/002b248b-6e0e-44fd-8cb6-320ffefa48fe/e5b998c1-73c7-46e8-a7ff-aa2ea18369bf/Ticketmaster-Logo-Azure_without_R.png"
+  },
+  {
+    "method": "GET",
+    "resource_type": "image",
+    "stage": "request",
+    "url": "https://cdn.cookielaw.org/logos/static/powered_by_logo.svg"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg"
+  },
+  {
+    "content_type": "image/png",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/logos/ba6f9c5b-dda5-43bd-bac4-4e06afccd928/002b248b-6e0e-44fd-8cb6-320ffefa48fe/e5b998c1-73c7-46e8-a7ff-aa2ea18369bf/Ticketmaster-Logo-Azure_without_R.png"
+  },
+  {
+    "content_type": "image/svg+xml",
+    "stage": "response",
+    "status": 200,
+    "url": "https://cdn.cookielaw.org/logos/static/powered_by_logo.svg"
+  }
+]
